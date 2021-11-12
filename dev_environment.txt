@@ -1,0 +1,11 @@
+Lindon Roberts, Nov 2021
+
+The environment I used for development of this package is Ubuntu 18.04 with Python 3.6.9.
+
+Packages installed:
+- numpy==1.19.5
+- scipy==1.5.4
+- matplotlib==3.3.4
+- pandas==1.1.5
+- pycutest==1.0
+- nose==1.3.7
