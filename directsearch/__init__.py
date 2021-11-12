@@ -26,3 +26,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 from .version import __version__
 __all__ = ['__version__']
+
+from .ds import ds as solve
+__all__ += ['solve']
