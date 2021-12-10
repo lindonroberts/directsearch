@@ -89,8 +89,8 @@ def qr_positive_diagonal(A):
     Q, R = np.linalg.qr(A, mode='reduced')
     R_diag_signs = np.diag(R) / np.abs(np.diag(R))
     # TODO do scaling by R_diag_signs without doing full matrix-matrix multiplication
-    Q2 = Q @ np.diag(R_diag_signs)
-    R2 = np.diag(R_diag_signs) @ R
+    Q2 = np.dot(Q, np.diag(R_diag_signs))
+    R2 = np.dot(np.diag(R_diag_signs), R)
     return Q2, R2
 
 
