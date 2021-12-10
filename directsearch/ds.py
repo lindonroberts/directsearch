@@ -177,11 +177,11 @@ def ds(f, x0, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEFAULT_PARAMS['sketch_dim']
     alpha = alpha0
     k = -1
     if verbose:
-        print(f"{'k':^5}{'f(xk)':^15}{'alpha_k':^15}")
+        print("{0:^5}{1:^15}{2:^15}".format('k', 'f(xk)', 'alpha_k'))
     while nf < maxevals:
         k += 1
         if verbose and k % print_freq == 0:
-            print(f"{k:^5}{fx:^15.4e}{alpha:^15.2e}")
+            print("{0:^5}{1:^15.4e}{2:^15.2e}".format(k, fx, alpha))
 
         # Generate poll directions
         Dk = poll_set(n, sketch_dim=sketch_dim, poll_type=poll_type, sketch_type=sketch_type, scale_prob=poll_scale_prob, scale_factor=poll_scale_factor)
@@ -204,12 +204,12 @@ def ds(f, x0, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEFAULT_PARAMS['sketch_dim']
 
                 if nf >= maxevals:
                     if verbose:
-                        print(f"{k:^5}{fx:^15.4e}{alpha:^15.2e} - max evals reached")
+                        print("{0:^5}{1:^15.4e}{2:^15.2e} - max evals reached".format(k, fx, alpha))
                     return x, fx, nf, EXIT_MAXFUN_REACHED
 
             if alpha < alpha_min:
                 if verbose:
-                    print(f"{k:^5}{fx:^15.4e}{alpha:^15.2e} - small alpha reached")
+                    print("{0:^5}{1:^15.4e}{2:^15.2e} - small alpha reached".format(k, fx, alpha))
                 break  # finish algorithm
 
             # end STP method
@@ -229,7 +229,7 @@ def ds(f, x0, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEFAULT_PARAMS['sketch_dim']
                         x = xnew.copy()
                         fx = fnew
                     if verbose:
-                        print(f"{k:^5}{fx:^15.4e}{alpha:^15.2e} - max evals reached")
+                        print("{0:^5}{1:^15.4e}{2:^15.2e} - max evals reached".format(k, fx, alpha))
                     return x, fx, nf, EXIT_MAXFUN_REACHED
 
                 # If sufficient decrease, update xk and stop poll step
@@ -243,7 +243,7 @@ def ds(f, x0, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEFAULT_PARAMS['sketch_dim']
             # If here, no decrease found
             if alpha < alpha_min:
                 if verbose:
-                    print(f"{k:^5}{fx:^15.4e}{alpha:^15.2e} - small alpha reached")
+                    print("{0:^5}{1:^15.4e}{2:^15.2e} - small alpha reached".format(k, fx, alpha))
                 break  # finish algorithm
 
             if not polling_successful:
