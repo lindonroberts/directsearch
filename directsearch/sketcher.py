@@ -22,7 +22,7 @@ import numpy as np
 from math import sqrt
 import scipy.sparse as sparse
 
-__all__ = ['sketch_matrix']
+__all__ = ['sketch_matrix', 'check_valid_sketch_method']
 
 
 def randint_without_replacement(q, m, s):
@@ -105,6 +105,19 @@ def sketch_orthogonal(q, m):
     S = np.sqrt(m / q) * Q.T  # shape is q * m
     return S
 
+def check_valid_sketch_method(sketch_method):
+    if sketch_method.startswith('hashing'):  # e.g. hashing1
+        try:
+            s = int(sketch_method.replace('hashing', ''))
+            return (s > 0)
+        except ValueError:  # can't cast string for s to int
+            return False
+    elif sketch_method == 'gaussian':
+        return True
+    elif sketch_method == 'orthogonal':
+        return True
+    else:
+        return False
 
 def sketch_matrix(sketch_dimension, ambient_dimension, sketch_method):
     """

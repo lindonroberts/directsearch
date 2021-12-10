@@ -27,5 +27,5 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from .version import __version__
 __all__ = ['__version__']
 
-from .ds import ds as solve
-__all__ += ['solve']
+from .interface import solve, solve_directsearch, solve_probabilistic_directsearch, solve_subspace_directsearch, solve_stp
+__all__ += ['solve', 'solve_directsearch', 'solve_probabilistic_directsearch', 'solve_subspace_directsearch', 'solve_stp']

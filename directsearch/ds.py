@@ -21,15 +21,37 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from math import sqrt
 import numpy as np
 
-from .sketcher import sketch_matrix
+from .sketcher import sketch_matrix, check_valid_sketch_method
 
-__all__ = ['ds']
+__all__ = ['ds', 'DEFAULT_PARAMS', 'EXIT_ALPHA_MIN_REACHED', 'EXIT_MAXFUN_REACHED']
+
+VALID_POLL_TYPES = ['2n', 'np1', 'random2', 'random_ortho']
+
+# Default choices for all parameters (to be consistent throughout)
+DEFAULT_PARAMS = {}
+DEFAULT_PARAMS['rho'] = None
+DEFAULT_PARAMS['sketch_dim'] = None
+DEFAULT_PARAMS['sketch_type'] = 'gaussian'
+DEFAULT_PARAMS['maxevals'] = None
+DEFAULT_PARAMS['poll_type'] = '2n'
+DEFAULT_PARAMS['alpha0'] = None
+DEFAULT_PARAMS['alpha_max'] = 1e3
+DEFAULT_PARAMS['alpha_min'] = 1e-6
+DEFAULT_PARAMS['gamma_inc'] = 2.0
+DEFAULT_PARAMS['gamma_dec'] = 0.5
+DEFAULT_PARAMS['verbose'] = False
+DEFAULT_PARAMS['print_freq'] = None
+DEFAULT_PARAMS['use_stochastic_three_points'] = False
+DEFAULT_PARAMS['poll_scale_prob'] = 0.0
+DEFAULT_PARAMS['poll_scale_factor'] = 1.0
+DEFAULT_PARAMS['rho_uses_normd'] = True
+
+# Exit flags
+EXIT_ALPHA_MIN_REACHED = 0  # alpha <= alpha_min
+EXIT_MAXFUN_REACHED = 1     # budget reached
 
 
-OUTPUT_STRINGS = {'BUDGET':'Maximum evaluations reached', 'SMALL_ALPHA':'alpha_min reached'}
-
-
-def poll_directions(n, poll_type='2n', scale_prob=0.0, scale_factor=1.0):
+def poll_directions(n, poll_type=DEFAULT_PARAMS['poll_type'], scale_prob=DEFAULT_PARAMS['poll_scale_prob'], scale_factor=DEFAULT_PARAMS['poll_scale_factor']):
     # Build a PSS for R^n of different types. Output is a matrix where each column is a search direction
     # With some probability, increase the length of the directions by some factor
     if poll_type == '2n':  # +/-I
@@ -62,7 +84,7 @@ def poll_directions(n, poll_type='2n', scale_prob=0.0, scale_factor=1.0):
         return D
 
 
-def poll_set(n, sketch_dim=None, sketch_type='gaussian', poll_type='2n', scale_prob=0.0, scale_factor=1.0):
+def poll_set(n, sketch_dim=DEFAULT_PARAMS['sketch_dim'], sketch_type=DEFAULT_PARAMS['sketch_type'], poll_type=DEFAULT_PARAMS['poll_type'], scale_prob=DEFAULT_PARAMS['poll_scale_prob'], scale_factor=DEFAULT_PARAMS['poll_scale_factor']):
     # Build sketched PSS. Ambient dimension is n, sketch dimension is sketch_dim
     # TODO make into generator to save memory when n is large
     if sketch_dim is None:
@@ -73,10 +95,10 @@ def poll_set(n, sketch_dim=None, sketch_type='gaussian', poll_type='2n', scale_p
     return Dk
 
 
-def ds(f, x0, rho=None, sketch_dim=None, sketch_type='gaussian', maxevals=None, poll_type='2n', alpha0=None, alpha_max=1e3, alpha_min=1e-6,
-       gamma_inc=2.0, gamma_dec=0.5, verbose=False, print_freq=None, use_stochastic_three_points=False, poll_scale_prob=0.0, poll_scale_factor=1.0,
-       rho_uses_normd=True):
+def ds(f, x0, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEFAULT_PARAMS['sketch_dim'], sketch_type=DEFAULT_PARAMS['sketch_type'], maxevals=DEFAULT_PARAMS['maxevals'], poll_type=DEFAULT_PARAMS['poll_type'], alpha0=DEFAULT_PARAMS['alpha0'], alpha_max=DEFAULT_PARAMS['alpha_max'], alpha_min=DEFAULT_PARAMS['alpha_min'],
+       gamma_inc=DEFAULT_PARAMS['gamma_inc'], gamma_dec=DEFAULT_PARAMS['gamma_dec'], verbose=DEFAULT_PARAMS['verbose'], print_freq=DEFAULT_PARAMS['print_freq'], use_stochastic_three_points=DEFAULT_PARAMS['use_stochastic_three_points'], poll_scale_prob=DEFAULT_PARAMS['poll_scale_prob'], poll_scale_factor=DEFAULT_PARAMS['poll_scale_factor'], rho_uses_normd=DEFAULT_PARAMS['rho_uses_normd']):
     # Set some sensible defaults for: sufficient decrease threshold, # evaluations, initial step size
+    rho_uses_normd = bool(rho_uses_normd)
     if rho is None:
         if rho_uses_normd:
             rho_to_use = lambda t, normd: min(1e-5, 1e-5 * (t * normd) ** 2)
@@ -84,24 +106,71 @@ def ds(f, x0, rho=None, sketch_dim=None, sketch_type='gaussian', maxevals=None, 
             rho_to_use = lambda t: 1e-5 * t**2
     else:
         rho_to_use = rho
-
+    
+    # Force correct types
+    x = np.array(x0, dtype=float)
+    n = len(x)
+    x = x.reshape((n,))
+    
     if maxevals is None:
-        maxevals = min(100 * (len(x0) + 1), 1000)
+        maxevals = min(100 * (n + 1), 1000)
+    maxevals = int(maxevals)
+    
     if alpha0 is None:
         alpha0 = 0.1 * max(np.max(np.abs(x0)), 1.0)
+        alpha0 = max(min(alpha0, alpha_max), alpha_min)  # force alpha0 to be in [alpha_min, alpha_max]
+    alpha0 = float(alpha0)
+    
     if print_freq is None:
         print_freq = max(int(maxevals // 20), 1)
+    print_freq = int(print_freq)
+    
+    alpha_max = float(alpha_max)
+    alpha_min = float(alpha_min)
+    gamma_inc = float(gamma_inc)
+    gamma_dec = float(gamma_dec)
+    poll_scale_prob = float(poll_scale_prob)
+    poll_scale_factor = float(poll_scale_factor)
+    verbose = bool(verbose)
+    use_stochastic_three_points = bool(use_stochastic_three_points)
+    
+    # Input checking
+    assert callable(f), "Objective function should be callable"
+    assert callable(rho_to_use), "Sufficient decrease function rho should be callable"
+    assert maxevals > 0, "maxevals should be strictly positive"
+    assert poll_type in VALID_POLL_TYPES, "Invalid poll_type '%s'" % (poll_type)
+    assert alpha_max > 0.0, "alpha_max should be strictly positive"
+    assert alpha0 > 0.0, "alpha0 should be strictly positive"
+    assert alpha_min > 0.0, "alpha_max should be strictly positive"
+    assert alpha_min <= alpha_max, "alpha_min should be <= alpha_max"
+    assert alpha0 >= alpha_min, "alpha0 should be >= alpha_min"
+    if not use_stochastic_three_points:  # STP never increases alpha above alpha0
+        assert alpha0 <= alpha_max, "alpha0 should be <= alpha_max"
+    assert gamma_inc >= 1.0, "gamma_inc should be at least 1"
+    assert gamma_dec > 0.0, "gamma_dec should be strictly positive"
+    assert gamma_dec < 1.0, "gamma_dec should be strictly < 1"
+    assert poll_scale_prob >= 0.0, "poll_scale_prob should be non-negative"
+    assert poll_scale_prob <= 1.0, "poll_scale_prob should be <= 1"
+    assert poll_scale_factor > 0.0, "poll_scale_factor should be strictly positive"
+    if verbose:
+        assert print_freq > 0, "print_freq should be strictly positive"
+    
     if use_stochastic_three_points:
         assert sketch_dim is None, "No sketch dimension needed for STP"
         assert poll_type == 'random2', "STP needs 'random2' poll type, got '%s'" % poll_type
-    n = len(x0)
-    x = x0.copy()
-    fx = f(x0)
+    
+    if sketch_dim is not None:
+        assert check_valid_sketch_method(sketch_type), "Invalid sketch_type '%s'" % (sketch_type)
+        assert sketch_dim > 0, "sketch_dim should be strictly positive"
+        assert sketch_dim <= n, "sketch_dim should be <= problem dimension"
+
+    # Begin main method
+    fx = f(x)
     nf = 1
     if nf >= maxevals:
         if verbose:
             print("Quit (max evals)")
-        return x, fx, nf, OUTPUT_STRINGS['BUDGET']
+        return x, fx, nf, EXIT_MAXFUN_REACHED
 
     # Main loop
     alpha = alpha0
@@ -135,7 +204,7 @@ def ds(f, x0, rho=None, sketch_dim=None, sketch_type='gaussian', maxevals=None, 
                 if nf >= maxevals:
                     if verbose:
                         print(f"{k:^5}{fx:^15.4e}{alpha:^15.2e} - max evals reached")
-                    return x, fx, nf, OUTPUT_STRINGS['BUDGET']
+                    return x, fx, nf, EXIT_MAXFUN_REACHED
 
             if alpha < alpha_min:
                 if verbose:
@@ -160,7 +229,7 @@ def ds(f, x0, rho=None, sketch_dim=None, sketch_type='gaussian', maxevals=None, 
                         fx = fnew
                     if verbose:
                         print(f"{k:^5}{fx:^15.4e}{alpha:^15.2e} - max evals reached")
-                    return x, fx, nf, OUTPUT_STRINGS['BUDGET']
+                    return x, fx, nf, EXIT_MAXFUN_REACHED
 
                 # If sufficient decrease, update xk and stop poll step
                 if sufficient_decrease:
@@ -181,5 +250,4 @@ def ds(f, x0, rho=None, sketch_dim=None, sketch_type='gaussian', maxevals=None, 
             # End direct search method
         # End loop
 
-    return x, fx, nf, OUTPUT_STRINGS['SMALL_ALPHA']
-
+    return x, fx, nf, EXIT_ALPHA_MIN_REACHED
