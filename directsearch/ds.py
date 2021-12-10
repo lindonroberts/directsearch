@@ -91,7 +91,8 @@ def poll_set(n, sketch_dim=DEFAULT_PARAMS['sketch_dim'], sketch_type=DEFAULT_PAR
         Dk = poll_directions(n, poll_type=poll_type, scale_prob=scale_prob, scale_factor=scale_factor)
     else:
         Pk = sketch_matrix(sketch_dim, n, sketch_method=sketch_type)
-        Dk = Pk.T @ poll_directions(sketch_dim, poll_type=poll_type, scale_prob=scale_prob, scale_factor=scale_factor)
+        # Note: Pk.T @ poll_directions doesn't work in Python 2.7, so use np.dot(...) for backwards compatibility
+        Dk = np.dot(Pk.T, poll_directions(sketch_dim, poll_type=poll_type, scale_prob=scale_prob, scale_factor=scale_factor))
     return Dk
 
 
