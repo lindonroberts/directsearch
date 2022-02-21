@@ -1,6 +1,8 @@
 """
-A collection of routines for generating random subspaces
+A collection of routines for generating random subspaces.
 
+
+===============================================================================
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
@@ -18,18 +20,30 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 # Ensure compatibility with Python 2
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+# Useful imports
 import numpy as np
 from math import sqrt
 import scipy.sparse as sparse
 
+# Global variables
 __all__ = ['sketch_matrix', 'check_valid_sketch_method']
 
 
+###############################################################################
 def randint_without_replacement(q, m, s):
-    '''
-    Select s random values from [0,...,q-1] *without* replacement, done m times independently
-    Return as s*m dense matrix of row indices in range(q)
-    '''
+    """
+        Selecting a random subset of indices.
+
+        randint_without_replacement(q,m,s) constructs a matrix whose columns 
+        are indices drawn without replacement in {0,...,q-1}.
+
+        Inputs:
+            q: Range for the indices.
+            m: Number of independent trials.
+            s: Number of values drawn during each trail
+        
+        Output: An s*m dense matrix of row indices in range(q)
+    """
     if s == 1:
         # Easy case
         return np.random.randint(0, q, size=m).reshape((1,m))
@@ -46,38 +60,70 @@ def randint_without_replacement(q, m, s):
     else:
         # Unfortunately, np.random.randint doesn't allow without-replacement sampling
         # The only way we can do this is with a Python loop over m (slow)
+        # NOTE: Could we try to reason on a matrix of indices
+        # np.random.rand(m,q).argsort(1)[:,:s] ?
         indices = np.arange(q)
         return np.vstack([np.random.choice(indices, size=s, replace=False) for _ in range(m)]).T
 
-
+###############################################################################
 def hashing_scalings(m, s):
-    '''
-    Return entries of q*m hashing matrix S (of which there are s*m values)
-    Output is s*m dense matrix
-    '''
-    return (2 * np.random.randint(0, 2, size=m*s) - 1) / sqrt(s)  # random array of +/- 1/sqrt(s)
+    """
+        Selecting a random subset of indices.
 
+        hashing_scaling(m,s) constructs an (s,m) matrix with +/- 1/sqrt(s) 
+        coefficients.
 
+        Inputs:
+            m: Number of rows of the matrix.
+            s: Number of values drawn during each trail
+        
+        Output: An s*m dense matrix of row indices in range(q)
+    """
+    return (2 * np.random.randint(0, 2, size=m*s) - 1) / sqrt(s)  
+
+###############################################################################
 def sketch_hashing(q, m, s=2):
-    '''
-    A is (something * m) matrix, calculate A*S.T where S is a q*m hashing matrix (with given s)
-    Build S in CSR format for fast S*x matrix-vector products (scipy recommends CSR over CSC for this)
-    '''
+    """
+        Builds a hashing sketching matrix S to define a column sketch operator
+        A -> A*S.T
+
+        Inputs:
+            q: Number of rows of the sketch
+            m: Number of columns of the sketch
+            s: Used to define the underlying hashing matrix.
+                Default: 2
+
+        Output:
+            S: Sketching q-by-m matrix build in CSR format for fast S*x 
+            matrix-vector products.
+    """
     vals = hashing_scalings(m, s)
     rows = randint_without_replacement(q, m, s)
     cols = np.vstack([np.arange(m) for _ in range(s)])  # s * m matrix of column indices
+    # scipy recommends CSR over CSC for fast S*x matvec
     S = sparse.csr_matrix((vals.flatten(), (rows.flatten(), cols.flatten())), shape=(q, m))
     return S
 
-
+###############################################################################
 def sketch_gaussian(q, m):
-    '''
-    A is (something * m) matrix, calculate A*S.T where S is a q*m Gaussian matrix
-    '''
+    """
+        Builds a Gaussian sketching matrix S to define a column sketch
+        A -> A*S.T
+
+        sketch_gaussian(q,m) generates a matrix of size (q,m) with normally 
+        distributed entries with zero mean and (1/sqrt(q)) variance.
+
+        Inputs:
+            q: Number of rows of the sketching matrix.
+            m: Number of columns of the sketching matrix.
+
+        Output: 
+            S: A q-by-m matrix with Gaussian entries.
+    """
     S = np.random.normal(size=(q, m)) / sqrt(q)
     return S
 
-
+###############################################################################
 def qr_positive_diagonal(A):
     '''
     QR factorization but where diag(R) > 0
@@ -93,7 +139,7 @@ def qr_positive_diagonal(A):
     R2 = np.dot(np.diag(R_diag_signs), R)
     return Q2, R2
 
-
+###############################################################################
 def sketch_orthogonal(q, m):
     '''
     Simple orthogonal sketching from Haar measure
