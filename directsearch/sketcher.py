@@ -1,6 +1,24 @@
 """
 A collection of routines for generating random subspaces.
 
+- randint_without_replacement: Auxiliary routine to draw a subset of random 
+indices
+
+- hashing_scalings: Auxiliary routine used to generate hashing sketches.
+
+- sketch_hashing: Computes a sketch matrix based on hashing.
+
+- sketch_gaussian: Computes a Gaussian sketching matrix.
+
+- qr_positive_diagonal: Auxiliary routine that computes a specific QR 
+factorization.
+
+- sketch_orthogonal: Computes a random orthogonal sketching matrix.
+
+- check_valid_sketch_method: Checks whether a sketching technique is
+implemented.
+
+- sketch_matrix: 
 
 ===============================================================================
 This program is free software: you can redistribute it and/or modify
@@ -68,7 +86,7 @@ def randint_without_replacement(q, m, s):
 ###############################################################################
 def hashing_scalings(m, s):
     """
-        Selecting a random subset of indices.
+        Generation of scaling matrix for hashing purposes.
 
         hashing_scaling(m,s) constructs an (s,m) matrix with +/- 1/sqrt(s) 
         coefficients.
@@ -86,6 +104,9 @@ def sketch_hashing(q, m, s=2):
     """
         Builds a hashing sketching matrix S to define a column sketch operator
         A -> A*S.T
+
+        sketch_hashing(q,m,s) produces a (q,m) matrix based on an (s,m) 
+        matrix with +/-1/sqrt(s) elements.
 
         Inputs:
             q: Number of rows of the sketch
@@ -126,11 +147,22 @@ def sketch_gaussian(q, m):
 ###############################################################################
 def qr_positive_diagonal(A):
     '''
-    QR factorization but where diag(R) > 0
+        Adjusted QR factorization.
 
-    Based on the complex version (p11 of https://arxiv.org/pdf/math-ph/0609050.pdf)
+        Q2,R2 = qr_positive_diagonal(A) outputs a QR factorization Q2*R2 = A 
+        such that all coefficients on the diagonal of R2 are positive.
 
-    This was designed for A square, but also works for A tall & skinny
+        Inputs:
+            A: Matrix to be factorized, either square or with more rows than 
+            columns
+        
+        Outputs:
+            Q2: Orthogonal factor in the QR factorization
+            R2: Triangular factor in the QR factorization with positive 
+            diagonal elements.
+
+        Source:
+             https://arxiv.org/pdf/math-ph/0609050.pdf, page 11.
     '''
     Q, R = np.linalg.qr(A, mode='reduced')
     R_diag_signs = np.diag(R) / np.abs(np.diag(R))
@@ -141,17 +173,34 @@ def qr_positive_diagonal(A):
 
 ###############################################################################
 def sketch_orthogonal(q, m):
-    '''
-    Simple orthogonal sketching from Haar measure
+    """
+        Builds an orthogonal sketching matrix drawn from the Haar distribution.
 
-    Eq (10), https://arxiv.org/pdf/2003.02684.pdf
-    '''
+        Inputs:
+            q: Number of rows of the sketch.
+            m: Number of columns of the sketch.
+
+        Output: 
+            S: q-by-m sketching matrix.
+
+        Source: Eq (10), https://arxiv.org/pdf/2003.02684.pdf
+    """
     Z = np.random.randn(m, q)  # save computation by dropping remaining columns of Z (get the same result in the end)
     Q, R = qr_positive_diagonal(Z)
     S = np.sqrt(m / q) * Q.T  # shape is q * m
     return S
 
+###############################################################################
+#NOTE: Is this method actually used?
 def check_valid_sketch_method(sketch_method):
+    """
+       Checks whether a proposed sketching technique is implemented.
+
+        Input:
+            sketch_method: String representing a sketching technique
+
+        Output: Boolean (True if the sketching technique is valid).
+    """
     if sketch_method.startswith('hashing'):  # e.g. hashing1
         try:
             s = int(sketch_method.replace('hashing', ''))
@@ -165,9 +214,21 @@ def check_valid_sketch_method(sketch_method):
     else:
         return False
 
+###############################################################################
 def sketch_matrix(sketch_dimension, ambient_dimension, sketch_method):
     """
-    Build a sketching matrix of size sketch_dimension*ambient_dimension
+        A wrapper for building a sketching matrix.
+
+        sketch_matrix(sketch_dimension,ambient_dimension,sketch_method) builds
+        a sketching matrix of size sketch_dimension*ambient_dimension. The 
+        nature of this sketch depends on the parameter sketch_method.
+
+        Inputs:
+            sketch_dimension: Number of rows of the sketch
+            ambient_dimension: Number of columns of the sketch
+            sketch_method: Nature of the sketching atrix
+
+        Output: A sketching matrix of size (sketch_dimension,ambient_dimension).
     """
     if sketch_method.startswith('hashing'):  # e.g. hashing1
         s = int(sketch_method.replace('hashing', ''))
