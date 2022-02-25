@@ -15,9 +15,9 @@ without sketching.
 on probabilistic descent without sketching.
 
 - A wrapper solve_subspace_directsearch() to apply direct-search schemes based 
-on polling directions in random subspaceS.
+on polling directions in random subspaces.
 
-- A wrapper solve_stochastic_threepoints() to apply the stochastic three 
+- A wrapper solve_stp() to apply the stochastic three
 points method, a particular direct-search technique.
 
 ===============================================================================

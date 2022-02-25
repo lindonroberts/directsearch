@@ -1,0 +1,115 @@
+Usage information for directsearch
+==================================
+
+The directsearch package solves the unconstrained optimization problem:
+
+    min_{x in R^n} f(x)
+
+where f(x) can be nonconvex. All algorithms implemented here only use the values of f(x), and no derivative information.
+As such, they are useful when f(x) is computationally expensive to evaluate, is black-box, and/or is inaccurate/noisy.
+
+Basic usage is given in the README, including output information. See examples/*.py for specific examples.
+
+Main solver routine
+===================
+The main routine in directsearch is the function directsearch.solve().
+It is a flexible routine which implements a variety of direct search strategies for minimizing f(x).
+The full definition of this function is:
+
+soln = directsearch.solve(f, x0, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEFAULT_PARAMS['sketch_dim'],
+          sketch_type=DEFAULT_PARAMS['sketch_type'], maxevals=DEFAULT_PARAMS['maxevals'],
+          poll_type=DEFAULT_PARAMS['poll_type'], alpha0=DEFAULT_PARAMS['alpha0'],
+          alpha_max=DEFAULT_PARAMS['alpha_max'], alpha_min=DEFAULT_PARAMS['alpha_min'],
+          gamma_inc=DEFAULT_PARAMS['gamma_inc'], gamma_dec=DEFAULT_PARAMS['gamma_dec'],
+          verbose=DEFAULT_PARAMS['verbose'], print_freq=DEFAULT_PARAMS['print_freq'],
+          use_stochastic_three_points=DEFAULT_PARAMS['use_stochastic_three_points'],
+          rho_uses_normd=DEFAULT_PARAMS['rho_uses_normd'])
+
+The output 'soln' object is documented in the README. The inputs are:
+
+- f: Function handle for the objective to be minimized.
+- x0: Initial point.
+- rho: Choice of the forcing function.
+    Default: see DEFAULT_PARAMS['rho']
+- sketch_dim: Reduced dimension to generate polling directions in.
+    Default: see DEFAULT_PARAMS['sketch_dim']
+- sketch_type: Sketching technique to be used.
+    Default: see DEFAULT_PARAMS['sketch_type']
+- maxevals: Maximum number of calls to f performed by the algorithm.
+    Default: see DEFAULT_PARAMS['maxevals']
+- poll_type: Type of polling directions generated in the reduced spaces.
+    Accepted values: See VALID_POLL_TYPES (defined at the top of directsearch/ds.py)
+    Default: see DEFAULT_PARAMS['poll_type']
+- alpha0: Initial value for the stepsize parameter.
+    Default: See DEFAULT_PARAMS['alpha0']
+- alpha_max: Maximum value for the stepsize parameter.
+    Default: See DEFAULT_PARAMS['alpha_max']
+- alpha_min: Minimum value for the stepsize parameter.
+    Default: See DEFAULT_PARAMS['alpha_min']
+- gamma_inc: Increase factor for the stepsize update.
+    Default: See DEFAULT_PARAMS['gamma_inc']
+- gamma_dec: Decrease factor for the stepsize update.
+    Default: See DEFAULT_PARAMS['gamma_dec']
+- verbose: Boolean indicating whether information should be displayed  during an algorithmic run.
+    Default: See DEFAULT_PARAMS['verbose']
+- print_freq: Value indicating how frequently information should be displayed.
+    Default: See DEFAULT_PARAMS['print_freq']
+- use_stochastic_three_points: Boolean indicating whether the specific stochastic three points method should be used.
+    Default: See DEFAULT_PARAMS['use_stochastic_three_points']
+- poll_scale_prob: Probability of scaling the polling directions.
+    Default: See DEFAULT_PARAMS['poll_scale_prob']
+- poll_scale_factor: Factor used to scale the polling directions.
+    Default: See DEFAULT_PARAMS['poll_scale_factor']
+- rho_uses_normd: Boolean indicating whether the forcing function should account for the norm of the direction.
+    Default: See DEFAULT_PARAMS['rho_uses_normd']
+
+The DEFAULT_PARAMS dictionary is defined at the start of the file directsearch/ds.py.
+
+Specific interface routines
+===========================
+Although directsearch.solve() is the most general interface, there are several simplified interfaces for calling specific algorithm instances.
+All inputs and outputs are the same as for directsearch.solve().
+The interfaces are:
+
+1. Classical, deterministic direct search (e.g. [1,2,3]).
+
+soln = directsearch.solve_directsearch(f, x0, rho=DEFAULT_PARAMS['rho'], maxevals=DEFAULT_PARAMS['maxevals'],
+                       poll_type=DEFAULT_PARAMS['poll_type'], alpha0=DEFAULT_PARAMS['alpha0'],
+                       alpha_max=DEFAULT_PARAMS['alpha_max'], alpha_min=DEFAULT_PARAMS['alpha_min'],
+                       gamma_inc=DEFAULT_PARAMS['gamma_inc'], gamma_dec=DEFAULT_PARAMS['gamma_dec'],
+                       verbose=DEFAULT_PARAMS['verbose'], print_freq=DEFAULT_PARAMS['print_freq'],
+                       rho_uses_normd=DEFAULT_PARAMS['rho_uses_normd'])
+
+2. Direct search with probabilistic descent [4]. This is a stochastic algorithm but typically requires fewer evaluations of f(x) than the classical method.
+
+soln = directsearch.solve_probabilistic_directsearch(f, x0, rho=DEFAULT_PARAMS['rho'], maxevals=DEFAULT_PARAMS['maxevals'],
+                                     alpha0=DEFAULT_PARAMS['alpha0'], alpha_max=DEFAULT_PARAMS['alpha_max'],
+                                     alpha_min=DEFAULT_PARAMS['alpha_min'], gamma_inc=DEFAULT_PARAMS['gamma_inc'],
+                                     gamma_dec=DEFAULT_PARAMS['gamma_dec'], verbose=DEFAULT_PARAMS['verbose'],
+                                     print_freq=DEFAULT_PARAMS['print_freq'],
+                                     rho_uses_normd=DEFAULT_PARAMS['rho_uses_normd'])
+
+3. Direct search based on polling directions in random subspaces [5]. This is a stochastic algorithm and is most useful when len(x0) is large (e.g. >=50).
+
+soln = directsearch.solve_subspace_directsearch(f, x0, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEFAULT_PARAMS['sketch_dim'],
+                                sketch_type=DEFAULT_PARAMS['sketch_type'], maxevals=DEFAULT_PARAMS['maxevals'],
+                                poll_type=DEFAULT_PARAMS['poll_type'], alpha0=DEFAULT_PARAMS['alpha0'],
+                                alpha_max=DEFAULT_PARAMS['alpha_max'], alpha_min=DEFAULT_PARAMS['alpha_min'],
+                                gamma_inc=DEFAULT_PARAMS['gamma_inc'], gamma_dec=DEFAULT_PARAMS['gamma_dec'],
+                                verbose=DEFAULT_PARAMS['verbose'], print_freq=DEFAULT_PARAMS['print_freq'],
+                                rho_uses_normd=DEFAULT_PARAMS['rho_uses_normd'])
+
+4. Stochastic Three-Points algorithm [6]. This is similar conceptually to probabilistic descent but with a pre-determined step size sequence.
+
+soln = directsearch.solve_stp(f, x0, maxevals=DEFAULT_PARAMS['maxevals'], alpha0=DEFAULT_PARAMS['alpha0'],
+              alpha_min=DEFAULT_PARAMS['alpha_min'], verbose=DEFAULT_PARAMS['verbose'],
+              print_freq=DEFAULT_PARAMS['print_freq'])
+
+References
+==========
+1. A R Conn, K Scheinberg, and L N Vicente. *Introduction to derivative-free optimization*. SIAM, 2009.
+2. C Audet, and W. Hare. Derivative-Free and Blackbox Optimization. Springer, 2017.
+3. T G Kolda, R M Lewis, and V Torczon. Optimization by Direct Search: New Perspectives on Some Classical and Modern Methods. *SIAM Review*, 45(3), 2003, 385-482.
+4. S Gratton, C W Royer, L N Vicente, and Z Zhang. Direct Search Based on Probabilistic Descent. *SIAM J. Optimization*, 25(3), 2015, 1515-1541.
+5. L Roberts, and C W Royer. Direct search based on probabilistic descent in reduced spaces, *In preparation*, (2022).
+6. E H Bergou, E Gorbunov, and P Richtarik. Stochastic Three Points Method for Unconstrained Smooth Minimization. *SIAM J. Optimization*, 30(4), 2020, 2726-2749.
