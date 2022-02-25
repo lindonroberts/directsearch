@@ -20,7 +20,7 @@ print("Starting from f(x0) = %g" % rosenbrock(x0))
 print("")
 
 # Call solver
-soln = directsearch.solve(rosenbrock, x0, verbose=True)  # add verbose=True to print more information
+soln = directsearch.solve_directsearch(rosenbrock, x0, verbose=True)  # add verbose=True to print more information
 
 # Display output
 print(soln)
@@ -29,6 +29,6 @@ print("")
 
 # Try again using a random direct search method
 np.random.seed(0)  # for reproducibility
-soln2 = directsearch.solve(rosenbrock, x0, poll_type='random2')
+soln2 = directsearch.solve_probabilistic_directsearch(rosenbrock, x0)
 
 print(soln2)
