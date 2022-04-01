@@ -31,7 +31,7 @@ setup(
     author='Lindon Roberts',
     author_email='lindon.roberts@anu.edu.au',
     url='https://github.com/lindonroberts/directsearch',
-    download_url='https://github.com/lindonroberts/directsearch/archive/v%s.tar.gz' % version,
+    download_url='https://github.com/lindonroberts/directsearch/archive/v%s.tar.gz' % __version__,
     packages=['directsearch'],
     license='GNU GPL',
     keywords='mathematics derivative free optimization direct search',
