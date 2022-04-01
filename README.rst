@@ -10,6 +10,10 @@ directsearch: derivative-free optimization using direct search
    :target: https://www.gnu.org/licenses/gpl-3.0
    :alt: GNU GPL v3 License
 
+.. image:: https://img.shields.io/pypi/v/directsearch.svg
+   :target: https://pypi.python.org/pypi/directsearch
+   :alt: Latest PyPI version
+
 ``directsearch`` is a package for solving unconstrained minimization, without requiring derivatives of the objective. It is particularly useful when evaluations of the objective function are expensive and/or noisy.
 
 It implements a family of direct search methods.
