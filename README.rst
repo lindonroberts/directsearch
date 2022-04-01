@@ -2,6 +2,10 @@
 directsearch: derivative-free optimization using direct search
 ==============================================================
 
+.. image::  https://github.com/lindonroberts/directsearch/actions/workflows/unit_tests.yml/badge.svg
+   :target: https://github.com/lindonroberts/directsearch/actions
+   :alt: Build Status
+
 .. image::  https://img.shields.io/badge/License-GPL%20v3-blue.svg
    :target: https://www.gnu.org/licenses/gpl-3.0
    :alt: GNU GPL v3 License
