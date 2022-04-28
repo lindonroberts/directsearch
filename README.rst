@@ -29,7 +29,7 @@ Citation
 --------
 If you use this package, please cite:
 
-L Roberts, and C W Royer. Direct search based on probabilistic descent in reduced spaces, *In preparation*, (2022).
+L Roberts, and C W Royer. [Direct search based on probabilistic descent in reduced spaces](https://arxiv.org/abs/2204.01275), Technical report arXiv:2204.01275, April 2022.
 
 Installation
 ------------
