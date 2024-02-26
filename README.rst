@@ -29,7 +29,7 @@ Citation
 --------
 If you use this package, please cite:
 
-L Roberts, and C W Royer. Direct search based on probabilistic descent in reduced spaces, Technical report arXiv:2204.01275, April 2022.
+L Roberts, and C W Royer. Direct search based on probabilistic descent in reduced spaces, *SIAM J. Optim.*, 33(4):3057-3082, 2023.
 
 Installation
 ------------
@@ -112,7 +112,7 @@ Note that ``solve_directsearch()`` is the only deterministic algorithm (i.e. rep
 2. C Audet, and W. Hare. Derivative-Free and Blackbox Optimization. Springer, 2017.
 3. T G Kolda, R M Lewis, and V Torczon. Optimization by Direct Search: New Perspectives on Some Classical and Modern Methods. *SIAM Review*, 45(3), 2003, 385-482.
 4. S Gratton, C W Royer, L N Vicente, and Z Zhang. Direct Search Based on Probabilistic Descent. *SIAM J. Optimization*, 25(3), 2015, 1515-1541.
-5. L Roberts, and C W Royer. Direct search based on probabilistic descent in reduced spaces, *In preparation*, (2022).
+5. L Roberts, and C W Royer. Direct search based on probabilistic descent in reduced spaces, *SIAM J. Optimization*, 33(4), 2023, 3057-3082.
 6. E H Bergou, E Gorbunov, and P Richtarik. Stochastic Three Points Method for Unconstrained Smooth Minimization. *SIAM J. Optimization*, 30(4), 2020, 2726-2749.
 
 Bugs
