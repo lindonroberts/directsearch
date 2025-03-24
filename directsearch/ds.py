@@ -116,7 +116,7 @@ def poll_directions(n, poll_type=DEFAULT_PARAMS['poll_type'], scale_prob=DEFAULT
         raise RuntimeError("Unknown poll type: %s" % poll_type)
 
     # Scale the directions with some probability
-    if float(np.random.rand(1)) <= scale_prob:
+    if float(np.random.rand()) <= scale_prob:
         return scale_factor * D
         # return np.hstack([scale_factor * D, D])
         # a = np.random.normal(size=(n, 1))
