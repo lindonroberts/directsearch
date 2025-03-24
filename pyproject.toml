@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "directsearch"
+dynamic = ["version"]
+dependencies = [
+    "setuptools",
+    "numpy>=1.11",
+    "scipy>=1.0"
+]
+requires-python = ">=3.9"
+authors = [
+    {name = "Lindon Roberts", email = "lindon.roberts@sydney.edu.au"}
+]
+maintainers = [
+    {name = "Lindon Roberts", email = "lindon.roberts@sydney.edu.au"}
+]
+description = "A derivative-free solver for unconstrained minimization"
+readme = "README.rst"
+license = {text = "GPL-3.0-or-later"}
+keywords = ["mathematics", "optimization", "derivative free optimization", "direct search"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Framework :: IPython",
+    "Framework :: Jupyter",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: Unix",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Mathematics"
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.urls]
+Homepage = "https://github.com/lindonroberts/directsearch"
+Download = "https://github.com/lindonroberts/directsearch/releases/"
+"Bug Tracker" = "https://github.com/lindonroberts/directsearch/issues/"
+Documentation = "https://github.com/lindonroberts/directsearch"
+"Source Code" = "https://github.com/lindonroberts/directsearch"
+
+[tool.setuptools]
+packages = ["directsearch"]
+
+[tool.setuptools.dynamic]
+version = {attr = "directsearch.__version__"}
