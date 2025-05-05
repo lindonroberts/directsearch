@@ -8,7 +8,7 @@ of the nearby tangent cone
     In: Combinatorics and Computer Science (M. Deza, R. Euler, I. Manoussakis eds), Springer 1996
 """
 import numpy as np
-from scipy.linalg import null_space
+from scipy.linalg import null_space, qr
 
 
 def nearby_constraints(A, b, x, alpha):
@@ -57,6 +57,203 @@ def full_rank_generators(A):
         return -Apinv
 
 
+def calculate_cone_generators(A, verbose=False):
+    """
+    Compute generators for a pointed cone. Given
+        R = calculate_cone_generators(A)
+    the columns of R are a minimal generating set for the cone {y : A @ y >= 0}.
+
+    Uses a simple implementation of the double description method [2], or the simple approach from [1] if we do not
+    have many constraints.
+
+    References:
+    [1] C. P. Dobler. A Matrix Approach to Finding a Set of Generators and Finding the Polar (Dual) of a Class of
+        Polyhedral Cones. SIAM J. Matrix Anal. & Appl. 15:3 (1994), pp. 796-803.
+    [2] K. Fukuda and A. Prodon. Double description method revisited.
+        In: Combinatorics and Computer Science (M. Deza, R. Euler, I. Manoussakis eds), Springer 1996
+
+    Inputs:
+    - A: m*n matrix of linear inequalities, where m is the number of constraints and n is the dimension of the space
+
+    Outputs:
+    - R: Generating set of the cone, matrix of size n*p where p is the number of generators
+    """
+    m, n = A.shape
+    if m == 0:
+        # No constraints, cone = R^n
+        if verbose:
+            print("No constraints, cone is R^%g" % n)
+        I_n = np.eye(n)
+        return np.hstack((I_n, -I_n))
+    elif m < n:
+        # Not full rank set of constraints, use Dobler 1994
+        # Generators are columns of pinv(A) and +/- any basis for nul(A)
+        if verbose:
+            print("Incomplete set of constraints, using simple generator formula")
+        Apinv = np.linalg.pinv(A)
+        # print("A.T =", A.T)
+        null = null_space(A)
+        # print("null =")
+        # print(null)
+        return np.hstack((Apinv, null, -null))
+
+    assert np.linalg.matrix_rank(A) == n, "A must have full column rank for this to work"
+
+    if m == n:
+        # A invertible, use Dobler 1994 approach without needing null space
+        if verbose:
+            print("Simple generator formula")
+        return np.linalg.pinv(A)
+
+    # m > n case: first find a set of n linearly independent constraints, then add in the remainder
+    _, _, piv = qr(A.T, mode='economic', pivoting=True)
+    J = piv[:n]
+    R = np.linalg.pinv(A[J, :])
+    if verbose:
+        print("Initially selecting n linearly independent constraints", J)
+        print("R =")
+        print(R)
+    cons_to_add = np.setdiff1d(list(range(m)), J)
+
+    # Add each remaining constraint (not in J), one at a time
+    # At the start of each iteration, the columns of R are a generating set for the cone given by inequalities A[J, :]
+
+    ZERO_THRESH = 10.0 * np.finfo(float).eps  # for determining Iplus, Izero and Iminus
+    for j in cons_to_add:
+        if verbose:
+            print("Adding constraint j = %g" % j, ", aj =", A[j, :])
+        v = A[j, :] @ R
+        if verbose:
+            print("v =", v)
+        ka = np.linalg.matrix_rank(A[J, :])
+
+        Iplus = np.nonzero(v > ZERO_THRESH)[0]
+        Izero = np.nonzero(np.abs(v) <= ZERO_THRESH)[0]
+        # Iminus = np.nonzero(np.abs(v) < ZERO_THRESH)[0]
+        Iminus = np.setdiff1d(list(range(R.shape[1])), np.hstack((Iplus, Izero)))  # remaining indices
+        if verbose:
+            print("Iplus =", Iplus, "Izero =", Izero, "Iminus =", Iminus)
+
+        # Finding the adjacent vectors
+        Rnew = np.zeros((n, 0), dtype=float)
+        Jnew = np.append(J, j)  # new index set (np.append does not modify J)
+
+        for ip in range(len(Iplus)):
+            r1 = R[:, Iplus[ip]]
+            ar1 = A[Jnew, :] @ r1
+            z1 = np.nonzero(np.abs(ar1[:-1]) <= ZERO_THRESH)[0]
+            k1 = np.linalg.matrix_rank(A[J[z1], :]) if len(z1) > 0 else 0
+
+            for im in range(len(Iminus)):
+                r2 = R[:, Iminus[im]]
+                ar2 = A[Jnew, :] @ r2
+                z2 = np.nonzero(np.abs(ar2[:-1]) <= ZERO_THRESH)[0]
+                k2 = np.linalg.matrix_rank(A[J[z2], :]) if len(z2) > 0 else 0
+
+                iz = np.intersect1d(z1, z2)
+                kz = np.linalg.matrix_rank(A[J[iz], :]) if len(iz) > 0 else 0
+
+                if k1 == ka - 1 and k2 == ka - 1 and kz == ka - 2:
+                    # r1 and r2 are adjacent directions
+                    r3 = ar1[-1] * r2 - ar2[-1] * r1
+                    if np.linalg.norm(r3) > ZERO_THRESH:
+                        Rnew = np.hstack((Rnew, r3.reshape((n, 1))))
+
+        # Building the new set
+        R = np.hstack((R[:, Iplus], R[:, Izero], Rnew))
+        J = Jnew.copy()
+
+        if verbose:
+            print("After adding j=%g" % j)
+            print("A = ")
+            print(A[J, :])
+            print("R =")
+            print(R)
+
+    return R
+
+
+def get_poll_directions(A, b, x, alpha, verbose=False):
+    """
+    Given feasible region { y : A @ y <= b }, a feasible point x and radius alpha, return a useful set of
+    feasible poll directions in B(x,alpha).
+
+    D = get_poll_directions(A, b, x, alpha)
+
+    :param A: m*n matrix defining the inequality constraints
+    :param b: length-m vector defining the inequality constraints
+    :param x: length-n vector for the current iterate
+    :param alpha: radius of search region, alpha > 0
+    :return: D, n*p matrix (some p) of vectors in B(0,alpha) such that all poll points x+D[:,i] are feasible
+    """
+    ZERO_THRESH = 5.0 * np.finfo(float).eps  # for measuring distance to boundary
+    m, n = A.shape
+    assert b.shape == (m,), "b has incompatible shape with A"
+    assert x.shape == (n,), "x has incompatible shape with A"
+    assert alpha > 0.0, "alpha must be strictly positive"
+    assert np.all(A @ x <= b + ZERO_THRESH), "x must be feasible"
+
+    J = nearby_constraints(A, b, x, alpha)  # nearly active constraints at x
+    if verbose:
+        print("Nearly active constraints are", J)
+    N = A[J, :]  # generators of the normal cone <--> the tangent cone is given by N @ x <= 0
+    T = calculate_cone_generators(-N)  # columns of T are generators of the tangent cone
+
+    # Scale each column of T to length alpha
+    T = T * alpha / np.linalg.norm(T, axis=0)
+    if verbose:
+        print("T =")
+        print(T)
+        print("T has %g generators" % T.shape[1])
+
+    # Calculate scaled length of -T directions to ensure feasibility
+    s = np.maximum(b - A @ x, 0.0)  # slack variables at x, ensure floored at zero in case of rounding errors
+    if T.shape[1] > 0:
+        Tneg = np.zeros((n, 0), dtype=float)
+        for i in range(T.shape[1]):
+            ti = T[:, i]
+            if verbose:
+                print("Negative of direction i=%g" % i, "ti =", ti)
+            if np.any(T.T @ ti <= -(1.0 - ZERO_THRESH) * alpha**2):
+                # Found another column tj such that dot(tj, ti) == -alpha^2, i.e. tj = -ti (since both have length alpha)
+                # No need to add -ti to poll directions, since it's already there
+                if verbose:
+                    print("Found -ti already in T, skipping")
+                continue
+            A_ti = A @ ti
+            idx = np.nonzero(A_ti < -ZERO_THRESH)[0]
+            alpha_i = np.min(s[idx] / (-A_ti[idx])) if len(idx) > 0 else 1.0
+            alpha_i = max(min(alpha_i, 1.0), 0.0)  # always ensure 0 <= alpha_i <= 1
+            if verbose:
+                print("alpha_i = %g" % alpha_i)
+            if alpha_i > ZERO_THRESH:
+                Tneg = np.hstack((Tneg, -alpha_i * ti.reshape((n, 1))))
+
+        return np.hstack((T, Tneg))
+    else:
+        # Tangent cone is {0}, i.e. normal cone spans R^n
+        # i.e. use these as the poll directions (after suitable scaling)
+        if verbose:
+            print("Trivial tangent cone, using outward normals as poll directions")
+        normal_dirns = N.T  # columns are outward normal directions
+        normal_dirns = normal_dirns * alpha / np.linalg.norm(normal_dirns, axis=0)  # scale to length alpha
+        poll_dirns = np.zeros((n, 0), dtype=float)
+        for i in range(normal_dirns.shape[1]):
+            ni = normal_dirns[:, i]
+            if verbose:
+                print("Normal i=%g" % i, "ni =", ni)
+            A_ni = A @ ni
+            idx = np.nonzero(A_ni > ZERO_THRESH)[0]
+            alpha_i = np.min(s[idx] / (A_ni[idx])) if len(idx) > 0 else 1.0
+            alpha_i = max(min(alpha_i, 1.0), 0.0)  # always ensure 0 <= alpha_i <= 1
+            if verbose:
+                print("alpha_i = %g" % alpha_i)
+            if alpha_i > ZERO_THRESH:
+                poll_dirns = np.hstack((poll_dirns, alpha_i * ni.reshape((n, 1))))
+
+        return poll_dirns
+
+
 def simplex_example():
     # Simplex example
     m = 3
@@ -87,8 +284,234 @@ def simplex_example():
     return
 
 
+def dd_example():
+    # Double description examples
+    # TODO warning, convention is cone = { y : A @ y >= 0 } (not <= 0)
+
+    print("*** 01 C = {0} ***")
+    A = np.array([[1.0, 0.0],  # x1 >= 0
+                  [0.0, 1.0],  # x2 >= 0
+                  [-1.0, -1.0]])  # x1 + x2 <= 0
+    R = calculate_cone_generators(A)
+    print("A = (%g constraints)" % A.shape[0])
+    print(A)
+    print("R (%g generators) =" % R.shape[1])
+    print(R)
+
+    print("*** 02 C = R^2 ***")
+    A = np.zeros((0, 2))  # no constraints
+    R = calculate_cone_generators(A)
+    print("A = (%g constraints)" % A.shape[0])
+    print(A)
+    print("R (%g generators) =" % R.shape[1])
+    print(R)
+
+    print("*** 03 Medium case 1 ***")
+    A = np.array([[1.0, 0.0]])  # x1 >= 0
+    R = calculate_cone_generators(A)
+    print("A = (%g constraints)" % A.shape[0])
+    print(A)
+    print("R (%g generators) =" % R.shape[1])
+    print(R)
+
+    print("*** 04 Medium case 1a ***")
+    A = np.array([[-1.0, 0.0],  # x1 <= 0
+                  [0.0, 1.0],   # x2 >= 0
+                  [0.0, -1.0]]) # x2 <= 0
+    R = calculate_cone_generators(A)
+    print("A = (%g constraints)" % A.shape[0])
+    print(A)
+    print("R (%g generators) =" % R.shape[1])
+    print(R)
+
+    print("*** 05 Medium case 2 ***")
+    A = np.array([[-1.0, 0.0],  # x1 <= 0
+                  [0.0, -1.0]])  # x2 <= 0
+    R = calculate_cone_generators(A)
+    print("A = (%g constraints)" % A.shape[0])
+    print(A)
+    print("R (%g generators) =" % R.shape[1])
+    print(R)
+
+    print("*** 06 Medium case 3 ***")
+    A = np.array([[-1.0, -1.0]])  # x1 + x2 <= 0
+    R = calculate_cone_generators(A)
+    print("A = (%g constraints)" % A.shape[0])
+    print(A)
+    print("R (%g generators) =" % R.shape[1])
+    print(R)
+
+    print("*** 07 Medium case 3a ***")
+    A = np.array([[0.0, 0.0],  # nothing achieved here
+                  [1.0, 1.0],  # x1 + x2 >= 0
+                  [-1.0, 1.0],  # x2 - x1 >= 0, i.e. x2 >= x1
+                  [1.0, -1.0]])  # x1 - x2 <= 0, i.e. x1 >= x2
+    # A = np.array([[1.0, 1.0],  # x1 + x2 >= 0
+    #               [-1.0, 1.0],  # x2 - x1 >= 0, i.e. x2 >= x1
+    #               [1.0, -1.0]])  # x1 - x2 <= 0, i.e. x1 >= x2
+    R = calculate_cone_generators(A)
+    print("A = (%g constraints)" % A.shape[0])
+    print(A)
+    print("R (%g generators) =" % R.shape[1])
+    print(R)
+
+    print("*** 08 Hard case 1 ***")
+    A = np.array([[1.0, 0.0],  # x1 >= 0
+                  [-1.0, -1.0]])  # x1 + x2 <= 0
+    R = calculate_cone_generators(A)
+    print("A = (%g constraints)" % A.shape[0])
+    print(A)
+    print("R (%g generators) =" % R.shape[1])
+    print(R)
+
+    print("*** 09 Hard case 1a ***")
+    A = np.array([[0.0, 1.0],  # x2 >= 0
+                  [-1.0, 1.0]])  # x2 - x1 >= 0, i.e. x2 >= x1
+    R = calculate_cone_generators(A)
+    print("A = (%g constraints)" % A.shape[0])
+    print(A)
+    print("R (%g generators) =" % R.shape[1])
+    print(R)
+
+    print("*** 10 Hard case (3d) 1 ***")
+    A = np.array([[1.0, 0.0, 0.0],  # x1 >= 0
+                  [0.0, 1.0, 0.0],  # x2 >= 0
+                  [-1.0, -1.0, -1.0]])  # x1 + x2 + x3 <= 0
+    R = calculate_cone_generators(A)
+    print("A = (%g constraints)" % A.shape[0])
+    print(A)
+    print("R (%g generators) =" % R.shape[1])
+    print(R)
+
+    print("*** 11 Pyramid 3d ***")
+    L = 3.0
+    A = np.array([[-1.0, 0.0, -L],  # x1 + L*x3 <= 0
+                  [1.0, 0.0, -L],  # -x1 + L*x3 <= 0
+                  [0.0, -1.0, -L],  # x2 + L*x3 <= 0
+                  [0.0, 1.0, -L]])  # -x2 + L*x3 <= 0
+    R = calculate_cone_generators(A)
+    print("A = (%g constraints)" % A.shape[0])
+    print(A)
+    print("R (%g generators) =" % R.shape[1])
+    print(2*L*R)  # normalized to match my slides, expect (+/-L, +/-L, -1)
+    return
+
+
+def poll_set_example():
+    np.set_printoptions(precision=5, suppress=True)
+    # 2d simplex
+    A = np.array([[-1.0, 0.0],
+                  [0.0, -1.0],
+                  [1.0, 1.0]])
+    b = np.array([0.0, 0.0, 1.0])
+
+    print("*** 01 Simple case 1 ***")
+    x = np.array([0.3, 0.3])
+    alpha = 0.1
+    D = get_poll_directions(A, b, x, alpha)
+    print("D =")
+    print(D)
+
+    print("*** 02 Simple case 2 ***")
+    x = np.array([0.3, 0.3])
+    alpha = 5.0
+    D = get_poll_directions(A, b, x, alpha)
+    print("D =")
+    print(D)
+
+    print("*** 03 Medium case 1 ***")
+    x = np.array([0.01, 0.5])
+    alpha = 0.1
+    D = get_poll_directions(A, b, x, alpha)
+    print("D =")
+    print(D)
+
+    print("*** 04 Medium case 2 ***")
+    x = np.array([0.01, 0.01])
+    alpha = 0.1
+    D = get_poll_directions(A, b, x, alpha)
+    print("D =")
+    print(D)
+
+    print("*** 05 Medium case 3 ***")
+    x = np.array([0.49, 0.49])
+    alpha = 0.1
+    D = get_poll_directions(A, b, x, alpha)
+    print("D =")
+    print(D)
+
+    print("*** 07 Hard case 1 ***")
+    x = np.array([0.01, 0.98])
+    alpha = 0.1
+    D = get_poll_directions(A, b, x, alpha)
+    print("D =")
+    print(D)
+
+    print("*** 08 Hard case 2 ***")
+    x = np.array([0.01, 0.99])
+    alpha = 0.1
+    D = get_poll_directions(A, b, x, alpha)
+    print("D =")
+    print(D)
+
+    # 3d simplex
+    A = np.array([[-1.0, 0.0, 0.0],
+                  [0.0, -1.0, 0.0],
+                  [0.0, 0.0, -1.0],
+                  [1.0, 1.0, 1.0]])
+    b = np.array([0.0, 0.0, 0.0, 1.0])
+
+    print("*** 09 Hard case 1 (3d) ***")
+    x = np.array([0.01, 0.01, 0.95])
+    alpha = 0.1
+    D = get_poll_directions(A, b, x, alpha)
+    print("D =")
+    print(D)
+
+    print("*** 10 Hard case 2 (3d) ***")
+    x = np.array([0.02, 0.02, 0.96])
+    alpha = 0.1
+    D = get_poll_directions(A, b, x, alpha)
+    print("D =")
+    print(D)
+
+    # 3d pyramid
+    print("*** 11 Pyramid (3d) ***")
+    L = 2.0
+    A = np.array([[0.0, 0.0, -1.0],  # z >= 0  <-->  -z <= 0
+                  [1.0, 0.0, 0.0],  # x <= L
+                  [-1.0, 0.0, 0.0],  # x >= -L  <-->  -x <= L
+                  [0.0, 1.0, 0.0],  # y <= L
+                  [0.0, -1.0, 0.0], # y >= -L  <-->  -y <= L
+                  [1.0, 0.0, L],  # x + Lz <= L
+                  [-1.0, 0.0, L], # -x + Lz <= L
+                  [0.0, 1.0, L], # y + Lz <= L
+                  [0.0, -1.0, L]]) # -y + Lz <= L
+    b = np.array([0.0, L, L, L, L, L, L, L, L])
+
+    x = np.array([0.0, 0.0, 0.98])
+    alpha = 0.1
+    D = get_poll_directions(A, b, x, alpha)
+    print("D =")
+    print(D)
+
+    # Fig 8.6a from Kolda et al (SIREV, 2003)
+    print("*** 12 Kolda et al ***")
+    A = np.array([[0.0, 1.0],  # x2 <= 1
+                 [1.0, 1.0]])  # x1 + x2 <= 2
+    b = np.array([1.0, 2.0])
+    x = np.array([0.95, 0.99])
+    alpha = 0.1
+    D = get_poll_directions(A, b, x, alpha)
+    print("D =")
+    print(D)
+    return
+
+
 def main():
-    simplex_example()
+    # simplex_example()
+    # dd_example()
+    poll_set_example()
     print("Done")
     return
 

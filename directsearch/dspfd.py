@@ -702,6 +702,14 @@ def main():
     print("Gb true =", Gb_true)
     print("Gb =", Gb)
 
+    B = np.zeros((0, 2))
+    A = np.array([[1.0, 1.0], [-1.0, 1.0], [1.0, -1.0]])
+    print("B =", B)
+    print("A =", A)
+    Gb = doubledescLI(B, A)
+    print("Gb =")
+    print(Gb)
+
     # TODO test calldoubledescLI
     # TODO unit tests?
     print("Done")
