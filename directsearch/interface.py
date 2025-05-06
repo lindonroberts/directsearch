@@ -40,6 +40,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 # Import key elements from the ds module
 from .ds import ds, DEFAULT_PARAMS, EXIT_ALPHA_MIN_REACHED, EXIT_MAXFUN_REACHED
+from .lincons import ds_lincons
 
 # Global variables
 __all__ = ['solve', 'solve_directsearch', 'solve_probabilistic_directsearch', 'solve_subspace_directsearch', 'solve_stp']
@@ -89,7 +90,7 @@ class OptimResults(object):
 
 
 ###############################################################################
-def solve(f, x0, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEFAULT_PARAMS['sketch_dim'],
+def solve(f, x0, A=None, b=None, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEFAULT_PARAMS['sketch_dim'],
           sketch_type=DEFAULT_PARAMS['sketch_type'], maxevals=DEFAULT_PARAMS['maxevals'],
           poll_type=DEFAULT_PARAMS['poll_type'], alpha0=DEFAULT_PARAMS['alpha0'],
           alpha_max=DEFAULT_PARAMS['alpha_max'], alpha_min=DEFAULT_PARAMS['alpha_min'],
@@ -100,13 +101,19 @@ def solve(f, x0, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEFAULT_PARAMS['sketch_di
     """
         Apply a direct-search method to an optimization problem.
 
-        Opt = solve(f,x0) attempts to minimize the function f starting at x0 
-        using a direct-search method. The final information is output in the 
-        Opt structure.
+            Opt = solve(f, x0)
+        or
+            Opt = solve(f, x0, A, b)
+        attempts to minimize the function f starting at x0 (possibly subject to the linear inequality constraints
+        A @ x <= b) using a direct-search method. The final information is output in the Opt structure.
+
+        Sketching and choice of poll type is not available if linear inequality constraints are provided.
 
         Inputs:
             f: Function handle for the objective to be minimized.
-            x0: Initial point.
+            x0: Initial point. Must satisfy constraints A @ x0 <= b
+            A: matrix defining linear inequality constraints A @ x <= b. Default: None
+            b: right-hand side defining linear inequality constraints A @ x <= b. Default: None
             rho: Choice of the forcing function.
                 Default: see DEFAULT_PARAMS['rho']
             sketch_dim: Reduced dimension to generate polling directions in.
@@ -151,15 +158,20 @@ def solve(f, x0, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEFAULT_PARAMS['sketch_di
             solution value, the function value at that solution, the number of 
             function evaluations and a termination flag.
     """
-
-    xmin, fmin, nf, flag =  ds(f, x0, rho=rho, sketch_dim=sketch_dim, sketch_type=sketch_type, maxevals=maxevals,
-                               poll_type=poll_type, alpha0=alpha0, alpha_max=alpha_max, alpha_min=alpha_min,
-                               gamma_inc=gamma_inc, gamma_dec=gamma_dec, verbose=verbose, print_freq=print_freq,
-                               use_stochastic_three_points=use_stochastic_three_points, rho_uses_normd=rho_uses_normd)
+    if A is None and b is None:
+        xmin, fmin, nf, flag = ds(f, x0, rho=rho, sketch_dim=sketch_dim, sketch_type=sketch_type, maxevals=maxevals,
+                                   poll_type=poll_type, alpha0=alpha0, alpha_max=alpha_max, alpha_min=alpha_min,
+                                   gamma_inc=gamma_inc, gamma_dec=gamma_dec, verbose=verbose, print_freq=print_freq,
+                                   use_stochastic_three_points=use_stochastic_three_points, rho_uses_normd=rho_uses_normd)
+    else:
+        xmin, fmin, nf, flag = ds_lincons(f, x0, A, b, rho=rho, maxevals=maxevals,
+                                  alpha0=alpha0, alpha_max=alpha_max, alpha_min=alpha_min,
+                                  gamma_inc=gamma_inc, gamma_dec=gamma_dec, verbose=verbose, print_freq=print_freq,
+                                  rho_uses_normd=rho_uses_normd)
     return OptimResults(xmin, fmin, nf, flag)
 
 ###############################################################################
-def solve_directsearch(f, x0, rho=DEFAULT_PARAMS['rho'], maxevals=DEFAULT_PARAMS['maxevals'],
+def solve_directsearch(f, x0, A=None, b=None, rho=DEFAULT_PARAMS['rho'], maxevals=DEFAULT_PARAMS['maxevals'],
                        poll_type=DEFAULT_PARAMS['poll_type'], alpha0=DEFAULT_PARAMS['alpha0'],
                        alpha_max=DEFAULT_PARAMS['alpha_max'], alpha_min=DEFAULT_PARAMS['alpha_min'],
                        gamma_inc=DEFAULT_PARAMS['gamma_inc'], gamma_dec=DEFAULT_PARAMS['gamma_dec'],
@@ -167,14 +179,18 @@ def solve_directsearch(f, x0, rho=DEFAULT_PARAMS['rho'], maxevals=DEFAULT_PARAMS
                        rho_uses_normd=DEFAULT_PARAMS['rho_uses_normd']):
     """
         A wrapper for deterministic and probabilistic direct search without 
-        sketching.
+        sketching, with optional linear constraints A @ x <= b.
 
-        Opt=solve_directsearch(f,x0) applies a regular direct-search method 
-        with sufficient decrease and adaptive stepsize.
+            Opt=solve_directsearch(f, x0)
+        or
+            Opt=solve_directsearch(f, x0, A, b)
+        applies a regular direct-search method with sufficient decrease and adaptive stepsize.
 
         Inputs:
             f: Function handle for the objective to be minimized.
-            x0: Initial point.
+            x0: Initial point. Must satisfy constraints A @ x0 <= b
+            A: matrix defining linear inequality constraints A @ x <= b. Default: None
+            b: right-hand side defining linear inequality constraints A @ x <= b. Default: None
             rho: Choice of the forcing function.
                 Default: see DEFAULT_PARAMS['rho']
             maxevals: Maximum number of calls to f performed by the algorithm.
@@ -205,7 +221,7 @@ def solve_directsearch(f, x0, rho=DEFAULT_PARAMS['rho'], maxevals=DEFAULT_PARAMS
         Output: See output of a call to the solve() function.
     """
 
-    return solve(f, x0, rho=rho, sketch_dim=None, maxevals=maxevals, poll_type=poll_type, alpha0=alpha0,
+    return solve(f, x0, A, b, rho=rho, sketch_dim=None, maxevals=maxevals, poll_type=poll_type, alpha0=alpha0,
                  alpha_max=alpha_max, alpha_min=alpha_min, gamma_inc=gamma_inc, gamma_dec=gamma_dec, verbose=verbose,
                  print_freq=print_freq, use_stochastic_three_points=False, rho_uses_normd=rho_uses_normd)
 

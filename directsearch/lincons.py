@@ -10,6 +10,8 @@ of the nearby tangent cone
 import numpy as np
 from scipy.linalg import null_space, qr
 
+from .ds import DEFAULT_PARAMS, EXIT_MAXFUN_REACHED, EXIT_ALPHA_MIN_REACHED
+
 
 def nearby_constraints(A, b, x, alpha):
     """
@@ -173,7 +175,7 @@ def calculate_cone_generators(A, verbose=False):
     return R
 
 
-def get_poll_directions(A, b, x, alpha, verbose=False):
+def get_poll_directions(A, b, x, alpha, include_negative_directions=True, verbose=False):
     """
     Given feasible region { y : A @ y <= b }, a feasible point x and radius alpha, return a useful set of
     feasible poll directions in B(x,alpha).
@@ -209,27 +211,37 @@ def get_poll_directions(A, b, x, alpha, verbose=False):
     # Calculate scaled length of -T directions to ensure feasibility
     s = np.maximum(b - A @ x, 0.0)  # slack variables at x, ensure floored at zero in case of rounding errors
     if T.shape[1] > 0:
-        Tneg = np.zeros((n, 0), dtype=float)
-        for i in range(T.shape[1]):
-            ti = T[:, i]
-            if verbose:
-                print("Negative of direction i=%g" % i, "ti =", ti)
-            if np.any(T.T @ ti <= -(1.0 - ZERO_THRESH) * alpha**2):
-                # Found another column tj such that dot(tj, ti) == -alpha^2, i.e. tj = -ti (since both have length alpha)
-                # No need to add -ti to poll directions, since it's already there
+        if include_negative_directions:
+            Tneg = np.zeros((n, 0), dtype=float)
+            for i in range(T.shape[1]):
+                ti = T[:, i]
                 if verbose:
-                    print("Found -ti already in T, skipping")
-                continue
-            A_ti = A @ ti
-            idx = np.nonzero(A_ti < -ZERO_THRESH)[0]
-            alpha_i = np.min(s[idx] / (-A_ti[idx])) if len(idx) > 0 else 1.0
-            alpha_i = max(min(alpha_i, 1.0), 0.0)  # always ensure 0 <= alpha_i <= 1
-            if verbose:
-                print("alpha_i = %g" % alpha_i)
-            if alpha_i > ZERO_THRESH:
-                Tneg = np.hstack((Tneg, -alpha_i * ti.reshape((n, 1))))
+                    print("Negative of direction i=%g" % i, "ti =", ti)
+                if np.any(T.T @ ti <= -(1.0 - ZERO_THRESH) * alpha**2):
+                    # Found another column tj such that dot(tj, ti) == -alpha^2, i.e. tj = -ti (since both have length alpha)
+                    # No need to add -ti to poll directions, since it's already there
+                    if verbose:
+                        print("Found -ti already in T, skipping")
+                    continue
+                A_ti = A @ ti
+                idx = np.nonzero(A_ti < -ZERO_THRESH)[0]
+                alpha_i = np.min(s[idx] / (-A_ti[idx])) if len(idx) > 0 else 1.0
+                alpha_i = max(min(alpha_i, 1.0), 0.0)  # always ensure 0 <= alpha_i <= 1
+                if verbose:
+                    # print("x =", x, ", s =", s)
+                    # print("A_ti =", A_ti)
+                    # print("idx =", idx)
+                    # print("s / (-A_ti) =", s[idx] / (-A_ti[idx]))
+                    print("alpha_i = %g" % alpha_i)
+                    # print("-alpha_i ti =", -alpha_i * ti)
+                    # print("new point =", x - alpha_i * ti)
+                if alpha_i > ZERO_THRESH:
+                    Tneg = np.hstack((Tneg, -alpha_i * ti.reshape((n, 1))))
 
-        return np.hstack((T, Tneg))
+            return np.hstack((T, Tneg))
+        else:
+            # Exclude negative directions, for comparison purposes
+            return T
     else:
         # Tangent cone is {0}, i.e. normal cone spans R^n
         # i.e. use these as the poll directions (after suitable scaling)
@@ -252,6 +264,215 @@ def get_poll_directions(A, b, x, alpha, verbose=False):
                 poll_dirns = np.hstack((poll_dirns, alpha_i * ni.reshape((n, 1))))
 
         return poll_dirns
+
+
+def ds_lincons(f, x0, A=None, b=None,
+               rho=DEFAULT_PARAMS['rho'],
+               maxevals=DEFAULT_PARAMS['maxevals'],
+               alpha0=DEFAULT_PARAMS['alpha0'],
+               alpha_max=DEFAULT_PARAMS['alpha_max'],
+               alpha_min=DEFAULT_PARAMS['alpha_min'],
+               gamma_inc=DEFAULT_PARAMS['gamma_inc'],
+               gamma_dec=DEFAULT_PARAMS['gamma_dec'],
+               verbose=DEFAULT_PARAMS['verbose'],
+               print_freq=DEFAULT_PARAMS['print_freq'],
+               rho_uses_normd=DEFAULT_PARAMS['rho_uses_normd']):
+    """
+        A generic direct-search code for linearly constrained black-box optimization.
+
+            x, fx, nf, flag = ds_lincons(f, x0, A, b)
+
+        attempts to minimize the function f starting at x0, subject to the linear inequality
+        constraints A @ x <= b, using a direct-search approach. The method is based on moves along certain
+        polling directions: these moves are controlled by means of an adaptive stepsize.
+
+        Inputs:
+            f: Function handle for the objective to be minimized.
+            x0: Initial point. Must satisfy constraints A @ x0 <= b
+            A: matrix defining linear inequality constraints A @ x <= b. Default: None
+            b: right-hand side defining linear inequality constraints A @ x <= b. Default: None
+            rho: Choice of the forcing function.
+                Default: see DEFAULT_PARAMS['rho']
+            maxevals: Maximum number of calls to f performed by the algorithm.
+                Default: see DEFAULT_PARAMS['maxevals']
+            alpha0: Initial value for the stepsize parameter.
+                Default: See DEFAULT_PARAMS['alpha0']
+            alpha_max: Maximum value for the stepsize parameter.
+                Default: See DEFAULT_PARAMS['alpha_max']
+            alpha_min: Minimum value for the stepsize parameter.
+                Default: See DEFAULT_PARAMS['alpha_min']
+            gamma_inc: Increase factor for the stepsize update.
+                Default: See DEFAULT_PARAMS['gamma_inc']
+            gamma_dec: Decrease factor for the stepsize update.
+                Default: See DEFAULT_PARAMS['gamma_dec']
+            verbose: Boolean indicating whether information should be displayed
+            during an algorithmic run.
+                Default: See DEFAULT_PARAMS['verbose']
+            print_freq: Value indicating how frequently information should
+            be displayed.
+                Default: See DEFAULT_PARAMS['print_freq']
+            rho_uses_normd: Boolean indicating whether the forcing function should
+            account for the norm of the direction.
+                Default: See DEFAULT_PARAMS['rho_uses_normd']
+
+        Outputs:
+            x: Best solution found (vector of same dimension than x0).
+            fx: Value of f at x.
+            nf: Number of function evaluations that have been used.
+            stopping flag: Indicator of the reason why the method stopped.
+                EXIT_MAXFUN_REACHED: The maximum number of function evaluations
+                was reached.
+                EXIT_ALPHA_MIN_REACHED: The stepsize reached the minimum
+                allowed value.
+
+    """
+
+    ###############
+    # Initialization
+    # Set some sensible defaults for: sufficient decrease threshold, # evaluations, initial step size
+    # Set the forcing function
+    rho_uses_normd = bool(rho_uses_normd)
+    if rho is None:
+        if rho_uses_normd:
+            rho_to_use = lambda t, normd: min(1e-5, 1e-5 * (t * normd) ** 2)
+        else:
+            rho_to_use = lambda t: 1e-5 * t ** 2
+    else:
+        rho_to_use = rho
+
+    # Force correct types
+    x = np.array(x0, dtype=float)
+    n = len(x)
+    x = x.reshape((n,))
+    if A is not None:
+        A = np.array(A, dtype=float)
+        assert b is not None, "b must be provided if A is provided"
+    else:
+        A = np.zeros((0, n), dtype=float)
+        assert b is None, "b must be None if A is None"
+    assert A.ndim == 2, "A must be a matrix"
+    m = A.shape[0]  # number of linear inequality constraints
+    assert A.shape[1] == n, "Second dimension of A must match length of x0"
+    if b is not None:
+        b = np.array(b, dtype=float)
+    else:
+        b = np.zeros((0,), dtype=float)
+    assert b.ndim == 1, "b must be a vector"
+    assert len(b) == m, "Length of b must match first dimension of A"
+    alpha_max = float(alpha_max)
+    alpha_min = float(alpha_min)
+    gamma_inc = float(gamma_inc)
+    gamma_dec = float(gamma_dec)
+    verbose = bool(verbose)
+
+    # Compute the maximum number of evaluations according to the problem dimension
+    if maxevals is None:
+        maxevals = min(100 * (n + 1), 1000)
+    maxevals = int(maxevals)
+
+    # Set initial stepsize so that it satisfies the bounds
+    # alpha_min <= alpha_0 <= alpha_max
+    if alpha0 is None:
+        alpha0 = 0.1 * max(np.max(np.abs(x0)), 1.0)
+        alpha0 = max(min(alpha0, alpha_max), alpha_min)
+    alpha0 = float(alpha0)
+
+    # Set frequence of information display
+    if print_freq is None:
+        print_freq = max(int(maxevals // 20), 1)
+    print_freq = int(print_freq)
+
+    # Input checking
+    assert callable(f), "Objective function should be callable"
+    assert callable(rho_to_use), "Sufficient decrease function rho should be callable"
+    assert np.all(A @ x0 <= b + 1e-14), "Initial point must be feasible, A @ x0 <= b"
+    assert maxevals > 0, "maxevals should be strictly positive"
+    assert alpha_max > 0.0, "alpha_max should be strictly positive"
+    assert alpha0 > 0.0, "alpha0 should be strictly positive"
+    assert alpha_min > 0.0, "alpha_max should be strictly positive"
+    assert alpha_min <= alpha_max, "alpha_min should be <= alpha_max"
+    assert alpha0 >= alpha_min, "alpha0 should be >= alpha_min"
+    assert gamma_inc >= 1.0, "gamma_inc should be at least 1"
+    assert gamma_dec > 0.0, "gamma_dec should be strictly positive"
+    assert gamma_dec < 1.0, "gamma_dec should be strictly < 1"
+    if verbose:
+        assert print_freq > 0, "print_freq should be strictly positive"
+
+    ###################################
+    # Start of the optimization process
+    fx = f(x)
+    nf = 1
+    if nf >= maxevals:
+        if verbose:
+            print("Quit (max evals)")
+        return x, fx, nf, EXIT_MAXFUN_REACHED
+
+    ###############
+    # Main loop
+    alpha = alpha0
+    k = -1
+    if verbose:
+        print("{0:^5}{1:^15}{2:^15}".format('k', 'f(xk)', 'alpha_k'))
+    while nf < maxevals:
+        k += 1
+        if verbose and k % print_freq == 0:
+            print("{0:^5}{1:^15.4e}{2:^15.2e}".format(k, fx, alpha))
+
+        # Generate poll directions adapted to linear constraints
+        Dk = get_poll_directions(A, b, x, alpha, verbose=False)
+        # WARNING: poll directions Dk[:,i] are already scaled by alpha, don't multiply by alpha below
+        # print("******")
+        # print("At x =", x, ", alpha = %g" % alpha)
+        # print("Poll directions =")
+        # print(Dk)
+        # print("******")
+
+        # Start poll step
+        ndirs = Dk.shape[1]
+
+        # Regular direct search - Sufficient decrease, adaptive stepsize
+        polling_successful = False
+        for j in range(ndirs):
+            dj = Dk[:, j]
+            xnew = x + dj  # WARNING: Dk is already scaled by alpha, so don't multiply by alpha here (different to ds.py)
+            fnew = f(xnew)
+            nf += 1
+            # Compute the target improvement
+            sufficient_decrease = (fnew < fx - rho_to_use(alpha, np.linalg.norm(dj))) if rho_uses_normd else (
+                        fnew < fx - rho_to_use(alpha))
+
+            # Quit on budget (update to xnew if we just saw an improvement)
+            if nf >= maxevals:
+                if sufficient_decrease:
+                    x = xnew.copy()
+                    fx = fnew
+                if verbose:
+                    print("{0:^5}{1:^15.4e}{2:^15.2e} - max evals reached".format(k, fx, alpha))
+                return x, fx, nf, EXIT_MAXFUN_REACHED
+
+            # If sufficient decrease, update xk and stop poll step
+            if sufficient_decrease:
+                x = xnew.copy()
+                fx = fnew
+                # Found a better point=> Possibly increase the stepsize
+                alpha = min(gamma_inc * alpha, alpha_max)
+                polling_successful = True
+                break  # stop poll step, go to next iteration
+
+        # If here, no decrease found
+        if alpha < alpha_min:
+            if verbose:
+                print("{0:^5}{1:^15.4e}{2:^15.2e} - small alpha reached".format(k, fx, alpha))
+            break  # finish algorithm
+            # Note - Could return here
+
+        if not polling_successful:
+            # No better found point=> Decrease the stepsize
+            alpha = gamma_dec * alpha
+        # End loop
+        ###########
+
+    return x, fx, nf, EXIT_ALPHA_MIN_REACHED
 
 
 def simplex_example():
