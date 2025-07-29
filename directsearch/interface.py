@@ -97,7 +97,8 @@ def solve(f, x0, A=None, b=None, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEFAULT_P
           gamma_inc=DEFAULT_PARAMS['gamma_inc'], gamma_dec=DEFAULT_PARAMS['gamma_dec'],
           verbose=DEFAULT_PARAMS['verbose'], print_freq=DEFAULT_PARAMS['print_freq'],
           use_stochastic_three_points=DEFAULT_PARAMS['use_stochastic_three_points'],
-          rho_uses_normd=DEFAULT_PARAMS['rho_uses_normd']):
+          rho_uses_normd=DEFAULT_PARAMS['rho_uses_normd'],
+          return_iteration_counts=DEFAULT_PARAMS['return_iteration_counts']):
     """
         Apply a direct-search method to an optimization problem.
 
@@ -151,24 +152,32 @@ def solve(f, x0, A=None, b=None, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEFAULT_P
             rho_uses_normd: Boolean indicating whether the forcing function should 
             account for the norm of the direction.
                 Default: See DEFAULT_PARAMS['rho_uses_normd']
+            return_iteration_counts: Boolean indicating whether to return an iteration count dictionary as extra output
+                Default: See DEFAULT_PARAMS['return_iteration_counts']
 
         
         Output:
             Opt: An instance of the OptimResults class containing the final 
             solution value, the function value at that solution, the number of 
             function evaluations and a termination flag.
+            iter_counts: if return_iteration_counts is True, a dictionary str: int containing the number of iterations
+            of each type (successful, unsuccessful). If return_iteration_counts is False, this is not returned.
     """
     if A is None and b is None:
-        xmin, fmin, nf, flag = ds(f, x0, rho=rho, sketch_dim=sketch_dim, sketch_type=sketch_type, maxevals=maxevals,
+        xmin, fmin, nf, flag, iter_counts = ds(f, x0, rho=rho, sketch_dim=sketch_dim, sketch_type=sketch_type, maxevals=maxevals,
                                    poll_type=poll_type, alpha0=alpha0, alpha_max=alpha_max, alpha_min=alpha_min,
                                    gamma_inc=gamma_inc, gamma_dec=gamma_dec, verbose=verbose, print_freq=print_freq,
                                    use_stochastic_three_points=use_stochastic_three_points, rho_uses_normd=rho_uses_normd)
     else:
-        xmin, fmin, nf, flag = ds_lincons(f, x0, A, b, rho=rho, maxevals=maxevals,
-                                  alpha0=alpha0, alpha_max=alpha_max, alpha_min=alpha_min,
-                                  gamma_inc=gamma_inc, gamma_dec=gamma_dec, verbose=verbose, print_freq=print_freq,
-                                  rho_uses_normd=rho_uses_normd)
-    return OptimResults(xmin, fmin, nf, flag)
+        xmin, fmin, nf, flag, iter_counts = ds_lincons(f, x0, A, b, rho=rho, maxevals=maxevals,
+                                                       alpha0=alpha0, alpha_max=alpha_max, alpha_min=alpha_min,
+                                                       gamma_inc=gamma_inc, gamma_dec=gamma_dec,
+                                                       verbose=verbose, print_freq=print_freq,
+                                                       rho_uses_normd=rho_uses_normd)
+    if return_iteration_counts:
+        return OptimResults(xmin, fmin, nf, flag), iter_counts
+    else:
+        return OptimResults(xmin, fmin, nf, flag)
 
 ###############################################################################
 def solve_directsearch(f, x0, A=None, b=None, rho=DEFAULT_PARAMS['rho'], maxevals=DEFAULT_PARAMS['maxevals'],
@@ -176,7 +185,8 @@ def solve_directsearch(f, x0, A=None, b=None, rho=DEFAULT_PARAMS['rho'], maxeval
                        alpha_max=DEFAULT_PARAMS['alpha_max'], alpha_min=DEFAULT_PARAMS['alpha_min'],
                        gamma_inc=DEFAULT_PARAMS['gamma_inc'], gamma_dec=DEFAULT_PARAMS['gamma_dec'],
                        verbose=DEFAULT_PARAMS['verbose'], print_freq=DEFAULT_PARAMS['print_freq'],
-                       rho_uses_normd=DEFAULT_PARAMS['rho_uses_normd']):
+                       rho_uses_normd=DEFAULT_PARAMS['rho_uses_normd'],
+                       return_iteration_counts=DEFAULT_PARAMS['return_iteration_counts']):
     """
         A wrapper for deterministic and probabilistic direct search without 
         sketching, with optional linear constraints A @ x <= b.
@@ -217,13 +227,16 @@ def solve_directsearch(f, x0, A=None, b=None, rho=DEFAULT_PARAMS['rho'], maxeval
             rho_uses_normd: Boolean indicating whether the forcing function should 
             account for the norm of the direction.
                 Default: See DEFAULT_PARAMS['rho_uses_normd']
+            return_iteration_counts: Boolean indicating whether to return an iteration count dictionary as extra output
+                Default: See DEFAULT_PARAMS['return_iteration_counts']
 
         Output: See output of a call to the solve() function.
     """
 
     return solve(f, x0, A, b, rho=rho, sketch_dim=None, maxevals=maxevals, poll_type=poll_type, alpha0=alpha0,
                  alpha_max=alpha_max, alpha_min=alpha_min, gamma_inc=gamma_inc, gamma_dec=gamma_dec, verbose=verbose,
-                 print_freq=print_freq, use_stochastic_three_points=False, rho_uses_normd=rho_uses_normd)
+                 print_freq=print_freq, use_stochastic_three_points=False, rho_uses_normd=rho_uses_normd,
+                 return_iteration_counts=return_iteration_counts)
 
 ###############################################################################
 def solve_probabilistic_directsearch(f, x0, rho=DEFAULT_PARAMS['rho'], maxevals=DEFAULT_PARAMS['maxevals'],
@@ -231,7 +244,8 @@ def solve_probabilistic_directsearch(f, x0, rho=DEFAULT_PARAMS['rho'], maxevals=
                                      alpha_min=DEFAULT_PARAMS['alpha_min'], gamma_inc=DEFAULT_PARAMS['gamma_inc'],
                                      gamma_dec=DEFAULT_PARAMS['gamma_dec'], verbose=DEFAULT_PARAMS['verbose'],
                                      print_freq=DEFAULT_PARAMS['print_freq'],
-                                     rho_uses_normd=DEFAULT_PARAMS['rho_uses_normd']):
+                                     rho_uses_normd=DEFAULT_PARAMS['rho_uses_normd'],
+                                     return_iteration_counts=DEFAULT_PARAMS['return_iteration_counts']):
     """
         A wrapper for probabilistic direct search methods (without sketching).
 
@@ -266,13 +280,16 @@ def solve_probabilistic_directsearch(f, x0, rho=DEFAULT_PARAMS['rho'], maxevals=
             rho_uses_normd: Boolean indicating whether the forcing function should 
             account for the norm of the direction.
                 Default: See DEFAULT_PARAMS['rho_uses_normd']
+            return_iteration_counts: Boolean indicating whether to return an iteration count dictionary as extra output
+                Default: See DEFAULT_PARAMS['return_iteration_counts']
 
         Output: See output of the solve() function.
     """
 
     return solve(f, x0, rho=rho, sketch_dim=None, maxevals=maxevals, poll_type='random2', alpha0=alpha0,
                  alpha_max=alpha_max, alpha_min=alpha_min, gamma_inc=gamma_inc, gamma_dec=gamma_dec, verbose=verbose,
-                 print_freq=print_freq, use_stochastic_three_points=False, rho_uses_normd=rho_uses_normd)
+                 print_freq=print_freq, use_stochastic_three_points=False, rho_uses_normd=rho_uses_normd,
+                 return_iteration_counts=return_iteration_counts)
 
 ###############################################################################
 def solve_subspace_directsearch(f, x0, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEFAULT_PARAMS['sketch_dim'],
@@ -281,7 +298,8 @@ def solve_subspace_directsearch(f, x0, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEF
                                 alpha_max=DEFAULT_PARAMS['alpha_max'], alpha_min=DEFAULT_PARAMS['alpha_min'],
                                 gamma_inc=DEFAULT_PARAMS['gamma_inc'], gamma_dec=DEFAULT_PARAMS['gamma_dec'],
                                 verbose=DEFAULT_PARAMS['verbose'], print_freq=DEFAULT_PARAMS['print_freq'],
-                                rho_uses_normd=DEFAULT_PARAMS['rho_uses_normd']):
+                                rho_uses_normd=DEFAULT_PARAMS['rho_uses_normd'],
+                                return_iteration_counts=DEFAULT_PARAMS['return_iteration_counts']):
     """
         A wrapper for direct search based on probabilistic descent in 
         reduced subspaces.
@@ -324,6 +342,8 @@ def solve_subspace_directsearch(f, x0, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEF
             rho_uses_normd: Boolean indicating whether the forcing function should 
             account for the norm of the direction.
                 Default: See DEFAULT_PARAMS['rho_uses_normd']
+            return_iteration_counts: Boolean indicating whether to return an iteration count dictionary as extra output
+                Default: See DEFAULT_PARAMS['return_iteration_counts']
 
         Output: See output of the solve() function.
     """
@@ -331,12 +351,13 @@ def solve_subspace_directsearch(f, x0, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEF
     return solve(f, x0, rho=rho, sketch_dim=sketch_dim, sketch_type=sketch_type, maxevals=maxevals,
                  poll_type=poll_type, alpha0=alpha0, alpha_max=alpha_max, alpha_min=alpha_min, gamma_inc=gamma_inc,
                  gamma_dec=gamma_dec, verbose=verbose, print_freq=print_freq, use_stochastic_three_points=False,
-                 rho_uses_normd=rho_uses_normd)
+                 rho_uses_normd=rho_uses_normd, return_iteration_counts=return_iteration_counts)
 
 ###############################################################################
 def solve_stp(f, x0, maxevals=DEFAULT_PARAMS['maxevals'], alpha0=DEFAULT_PARAMS['alpha0'],
               alpha_min=DEFAULT_PARAMS['alpha_min'], verbose=DEFAULT_PARAMS['verbose'],
-              print_freq=DEFAULT_PARAMS['print_freq']):
+              print_freq=DEFAULT_PARAMS['print_freq'],
+              return_iteration_counts=DEFAULT_PARAMS['return_iteration_counts']):
     """
         A wrapper for the stochastic three-point method.
 
@@ -364,9 +385,12 @@ def solve_stp(f, x0, maxevals=DEFAULT_PARAMS['maxevals'], alpha0=DEFAULT_PARAMS[
             print_freq: Value indicating how frequently information should
             be displayed.
                 Default: See DEFAULT_PARAMS['print_freq']
+            return_iteration_counts: Boolean indicating whether to return an iteration count dictionary as extra output
+                Default: See DEFAULT_PARAMS['return_iteration_counts']
 
         Output: See output of the solve() function.
     """
 
     return solve(f, x0, sketch_dim=None, maxevals=maxevals, poll_type='random2', alpha0=alpha0, alpha_min=alpha_min,
-                 verbose=verbose, print_freq=print_freq, use_stochastic_three_points=True)
+                 verbose=verbose, print_freq=print_freq, use_stochastic_three_points=True,
+                 return_iteration_counts=return_iteration_counts)

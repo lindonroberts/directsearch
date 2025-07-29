@@ -180,13 +180,14 @@ def get_poll_directions(A, b, x, alpha, include_negative_directions=True, verbos
     Given feasible region { y : A @ y <= b }, a feasible point x and radius alpha, return a useful set of
     feasible poll directions in B(x,alpha).
 
-    D = get_poll_directions(A, b, x, alpha)
+    D, Dneg = get_poll_directions(A, b, x, alpha)
 
     :param A: m*n matrix defining the inequality constraints
     :param b: length-m vector defining the inequality constraints
     :param x: length-n vector for the current iterate
     :param alpha: radius of search region, alpha > 0
     :return: D, n*p matrix (some p) of vectors in B(0,alpha) such that all poll points x+D[:,i] are feasible
+    :return: Dneg, n*p2 matrix (some p2) similar to D, but corresponding to negative of tangent directions. Possibly None
     """
     ZERO_THRESH = 5.0 * np.finfo(float).eps  # for measuring distance to boundary
     m, n = A.shape
@@ -238,10 +239,10 @@ def get_poll_directions(A, b, x, alpha, include_negative_directions=True, verbos
                 if alpha_i > ZERO_THRESH:
                     Tneg = np.hstack((Tneg, -alpha_i * ti.reshape((n, 1))))
 
-            return np.hstack((T, Tneg))
+            return T, Tneg
         else:
             # Exclude negative directions, for comparison purposes
-            return T
+            return T, None
     else:
         # Tangent cone is {0}, i.e. normal cone spans R^n
         # i.e. use these as the poll directions (after suitable scaling)
@@ -263,7 +264,7 @@ def get_poll_directions(A, b, x, alpha, include_negative_directions=True, verbos
             if alpha_i > ZERO_THRESH:
                 poll_dirns = np.hstack((poll_dirns, alpha_i * ni.reshape((n, 1))))
 
-        return poll_dirns
+        return poll_dirns, None
 
 
 def ds_lincons(f, x0, A=None, b=None,
@@ -413,13 +414,14 @@ def ds_lincons(f, x0, A=None, b=None,
     k = -1
     if verbose:
         print("{0:^5}{1:^15}{2:^15}".format('k', 'f(xk)', 'alpha_k'))
+    iteration_counts = {'successful': 0, 'successful_negative_direction': 0, 'unsuccessful': 0}
     while nf < maxevals:
         k += 1
         if verbose and k % print_freq == 0:
             print("{0:^5}{1:^15.4e}{2:^15.2e}".format(k, fx, alpha))
 
         # Generate poll directions adapted to linear constraints
-        Dk = get_poll_directions(A, b, x, alpha, verbose=False)
+        Dk, Dk_neg = get_poll_directions(A, b, x, alpha, verbose=False)
         # WARNING: poll directions Dk[:,i] are already scaled by alpha, don't multiply by alpha below
         # print("******")
         # print("At x =", x, ", alpha = %g" % alpha)
@@ -428,12 +430,15 @@ def ds_lincons(f, x0, A=None, b=None,
         # print("******")
 
         # Start poll step
-        ndirs = Dk.shape[1]
+        ndirs1 = Dk.shape[1]
+        ndirs2 = Dk_neg.shape[1] if Dk_neg is not None else 0
+        ndirs = ndirs1 + ndirs2
 
         # Regular direct search - Sufficient decrease, adaptive stepsize
         polling_successful = False
+        used_negative_direction = False
         for j in range(ndirs):
-            dj = Dk[:, j]
+            dj = Dk[:, j] if j < ndirs1 else Dk_neg[:, j-ndirs1]
             xnew = x + dj  # WARNING: Dk is already scaled by alpha, so don't multiply by alpha here (different to ds.py)
             fnew = f(xnew)
             nf += 1
@@ -446,6 +451,13 @@ def ds_lincons(f, x0, A=None, b=None,
                 if sufficient_decrease:
                     x = xnew.copy()
                     fx = fnew
+                if sufficient_decrease:
+                    if used_negative_direction:
+                        iteration_counts['successful_negative_direction'] += 1
+                    else:
+                        iteration_counts['successful'] += 1
+                else:
+                    iteration_counts['unsuccessful'] += 1
                 if verbose:
                     print("{0:^5}{1:^15.4e}{2:^15.2e} - max evals reached".format(k, fx, alpha))
                 return x, fx, nf, EXIT_MAXFUN_REACHED
@@ -457,7 +469,18 @@ def ds_lincons(f, x0, A=None, b=None,
                 # Found a better point=> Possibly increase the stepsize
                 alpha = min(gamma_inc * alpha, alpha_max)
                 polling_successful = True
+                if j >= ndirs1:
+                    used_negative_direction = True
                 break  # stop poll step, go to next iteration
+
+        # Determine iteration type
+        if polling_successful:
+            if used_negative_direction:
+                iteration_counts['successful_negative_direction'] += 1
+            else:
+                iteration_counts['successful'] += 1
+        else:
+            iteration_counts['unsuccessful'] += 1
 
         # If here, no decrease found
         if alpha < alpha_min:
@@ -472,7 +495,7 @@ def ds_lincons(f, x0, A=None, b=None,
         # End loop
         ###########
 
-    return x, fx, nf, EXIT_ALPHA_MIN_REACHED
+    return x, fx, nf, EXIT_ALPHA_MIN_REACHED, iteration_counts
 
 
 def simplex_example():

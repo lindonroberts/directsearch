@@ -34,7 +34,14 @@ print("Starting from f(x0) = %g" % rosenbrock(x0))
 print("")
 
 # Call solver
-soln = directsearch.solve_directsearch(rosenbrock, x0, A, b, verbose=True)  # add verbose=True to print more information
+return_iteration_counts = True
+if return_iteration_counts:
+    soln, iter_counts = directsearch.solve_directsearch(rosenbrock, x0, A, b, verbose=True)  # add verbose=True to print more information
+else:
+    soln = directsearch.solve_directsearch(rosenbrock, x0, A, b, verbose=True)  # add verbose=True to print more information
+    iter_counts = None
 
 # Display output
 print(soln)
+if iter_counts is not None:
+    print(iter_counts)
