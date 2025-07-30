@@ -446,6 +446,8 @@ def main():
     # 3. Load json file and report problem statistics to match input info from original paper
     get_problem_info(problem_info_file)
 
+    # TODO be aware that SMALL_BOUND_CONS and LARGE_BOUND_CONS contain some of the same problems (+ same dimension)
+
     print("Done")
     return
 
