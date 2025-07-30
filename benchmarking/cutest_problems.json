@@ -1,0 +1,977 @@
+{
+  "SMALL_BOUND_CONS": [
+    {
+      "name": "ALLINIT",
+      "sifparams": null
+    },
+    {
+      "name": "BQP1VAR",
+      "sifparams": null
+    },
+    {
+      "name": "CAMEL6",
+      "sifparams": null
+    },
+    {
+      "name": "CHEBYQAD",
+      "sifparams": {
+        "N": 10
+      }
+    },
+    {
+      "name": "CHENHARK",
+      "sifparams": {
+        "N": 10,
+        "NFREE": 5,
+        "NDEGEN": 2
+      }
+    },
+    {
+      "name": "CVXBQP1",
+      "sifparams": {
+        "N": 10
+      }
+    },
+    {
+      "name": "DEGDIAG",
+      "sifparams": {
+        "N": 10
+      }
+    },
+    {
+      "name": "DEGTRID",
+      "sifparams": {
+        "N": 10
+      }
+    },
+    {
+      "name": "EG1",
+      "sifparams": null
+    },
+    {
+      "name": "EXPLIN",
+      "sifparams": {
+        "N": 12,
+        "M": 6
+      }
+    },
+    {
+      "name": "EXPLIN2",
+      "sifparams": {
+        "N": 12,
+        "M": 6
+      }
+    },
+    {
+      "name": "EXPQUAD",
+      "sifparams": {
+        "N": 12,
+        "M": 6
+      }
+    },
+    {
+      "name": "HARKERP2",
+      "sifparams": {
+        "N": 10
+      }
+    },
+    {
+      "name": "HART6",
+      "sifparams": null
+    },
+    {
+      "name": "HATFLDA",
+      "sifparams": null
+    },
+    {
+      "name": "HATFLDB",
+      "sifparams": null
+    },
+    {
+      "name": "HIMMELP1",
+      "sifparams": null
+    },
+    {
+      "name": "HS1",
+      "sifparams": null
+    },
+    {
+      "name": "HS25",
+      "sifparams": null
+    },
+    {
+      "name": "HS2",
+      "sifparams": null
+    },
+    {
+      "name": "HS38",
+      "sifparams": null
+    },
+    {
+      "name": "HS3",
+      "sifparams": null
+    },
+    {
+      "name": "HS3MOD",
+      "sifparams": null
+    },
+    {
+      "name": "HS45",
+      "sifparams": null
+    },
+    {
+      "name": "HS4",
+      "sifparams": null
+    },
+    {
+      "name": "HS5",
+      "sifparams": null
+    },
+    {
+      "name": "HS110",
+      "sifparams": {
+        "N": 10
+      }
+    },
+    {
+      "name": "JNLBRNG1",
+      "sifparams": {
+        "PT": 4,
+        "PY": 4
+      }
+    },
+    {
+      "name": "JNLBRNG2",
+      "sifparams": {
+        "PT": 4,
+        "PY": 4
+      }
+    },
+    {
+      "name": "JNLBRNGA",
+      "sifparams": {
+        "PT": 4,
+        "PY": 4
+      }
+    },
+    {
+      "name": "JNLBRNGB",
+      "sifparams": {
+        "PT": 4,
+        "PY": 4
+      }
+    },
+    {
+      "name": "KOEBHELB",
+      "sifparams": null
+    },
+    {
+      "name": "LINVERSE",
+      "sifparams": {
+        "N": 10
+      }
+    },
+    {
+      "name": "LOGROS",
+      "sifparams": null
+    },
+    {
+      "name": "MAXLIKA",
+      "sifparams": null
+    },
+    {
+      "name": "MCCORMCK",
+      "sifparams": {
+        "N": 10
+      }
+    },
+    {
+      "name": "MDHOLE",
+      "sifparams": null
+    },
+    {
+      "name": "NCVXBQP1",
+      "sifparams": {
+        "N": 10
+      }
+    },
+    {
+      "name": "NCVXBQP2",
+      "sifparams": {
+        "N": 10
+      }
+    },
+    {
+      "name": "NCVXBQP3",
+      "sifparams": {
+        "N": 10
+      }
+    },
+    {
+      "name": "NOBNDTOR",
+      "sifparams": {
+        "Q": 2
+      }
+    },
+    {
+      "name": "OBSTCLAE",
+      "sifparams": {
+        "PX": 4,
+        "PY": 4
+      }
+    },
+    {
+      "name": "OBSTCLBL",
+      "sifparams": {
+        "PX": 4,
+        "PY": 4
+      }
+    },
+    {
+      "name": "OSLBQP",
+      "sifparams": null
+    },
+    {
+      "name": "PALMER1A",
+      "sifparams": null
+    },
+    {
+      "name": "PALMER2B",
+      "sifparams": null
+    },
+    {
+      "name": "PALMER3E",
+      "sifparams": null
+    },
+    {
+      "name": "PALMER4A",
+      "sifparams": null
+    },
+    {
+      "name": "PALMER5B",
+      "sifparams": null
+    },
+    {
+      "name": "PFIT1LS",
+      "sifparams": null
+    },
+    {
+      "name": "POWELLBC",
+      "sifparams": {
+        "P": 5
+      }
+    },
+    {
+      "name": "PROBPENL",
+      "sifparams": {
+        "N": 10
+      }
+    },
+    {
+      "name": "PSPDOC",
+      "sifparams": null
+    },
+    {
+      "name": "QRTQUAD",
+      "sifparams": {
+        "N": 12,
+        "M": 6
+      }
+    },
+    {
+      "name": "S368",
+      "sifparams": {
+        "N": 8
+      }
+    },
+    {
+      "name": "SCOND1LS",
+      "sifparams": {
+        "N": 10,
+        "LN": 9
+      }
+    },
+    {
+      "name": "SIMBQP",
+      "sifparams": null
+    },
+    {
+      "name": "SINEALI",
+      "sifparams": {
+        "N": 10
+      }
+    },
+    {
+      "name": "SPECAN",
+      "sifparams": {
+        "K": 3
+      }
+    },
+    {
+      "name": "TORSION1",
+      "sifparams": {
+        "Q": 2
+      }
+    },
+    {
+      "name": "TORSIONA",
+      "sifparams": {
+        "Q": 2
+      }
+    },
+    {
+      "name": "WEEDS",
+      "sifparams": null
+    },
+    {
+      "name": "YFIT",
+      "sifparams": null
+    }
+  ],
+  "LARGE_BOUND_CONS": [
+    {
+      "name": "CHEBYQAD",
+      "sifparams": {
+        "N": 20
+      }
+    },
+    {
+      "name": "CHENHARK",
+      "sifparams": {
+        "N": 10,
+        "NFREE": 5,
+        "NDEGEN": 2
+      }
+    },
+    {
+      "name": "CVXBQP1",
+      "sifparams": {
+        "N": 50
+      }
+    },
+    {
+      "name": "DEGDIAG",
+      "sifparams": {
+        "N": 50
+      }
+    },
+    {
+      "name": "DEGTRID",
+      "sifparams": {
+        "N": 50
+      }
+    },
+    {
+      "name": "EXPLIN",
+      "sifparams": {
+        "N": 12,
+        "M": 6
+      }
+    },
+    {
+      "name": "EXPLIN2",
+      "sifparams": {
+        "N": 12,
+        "M": 6
+      }
+    },
+    {
+      "name": "EXPQUAD",
+      "sifparams": {
+        "N": 12,
+        "M": 6
+      }
+    },
+    {
+      "name": "HARKERP2",
+      "sifparams": {
+        "N": 10
+      }
+    },
+    {
+      "name": "HS110",
+      "sifparams": {
+        "N": 50
+      }
+    },
+    {
+      "name": "JNLBRNG1",
+      "sifparams": {
+        "PT": 4,
+        "PY": 4
+      }
+    },
+    {
+      "name": "JNLBRNG2",
+      "sifparams": {
+        "PT": 4,
+        "PY": 4
+      }
+    },
+    {
+      "name": "JNLBRNGA",
+      "sifparams": {
+        "PT": 4,
+        "PY": 4
+      }
+    },
+    {
+      "name": "JNLBRNGB",
+      "sifparams": {
+        "PT": 4,
+        "PY": 4
+      }
+    },
+    {
+      "name": "LINVERSE",
+      "sifparams": {
+        "N": 10
+      }
+    },
+    {
+      "name": "MCCORMCK",
+      "sifparams": {
+        "N": 50
+      }
+    },
+    {
+      "name": "NCVXBQP1",
+      "sifparams": {
+        "N": 50
+      }
+    },
+    {
+      "name": "NCVXBQP2",
+      "sifparams": {
+        "N": 50
+      }
+    },
+    {
+      "name": "NCVXBQP3",
+      "sifparams": {
+        "N": 50
+      }
+    },
+    {
+      "name": "NOBNDTOR",
+      "sifparams": {
+        "Q": 2
+      }
+    },
+    {
+      "name": "OBSTCLAE",
+      "sifparams": {
+        "PX": 4,
+        "PY": 4
+      }
+    },
+    {
+      "name": "OBSTCLBL",
+      "sifparams": {
+        "PX": 4,
+        "PY": 4
+      }
+    },
+    {
+      "name": "POWELLBC",
+      "sifparams": {
+        "P": 10
+      }
+    },
+    {
+      "name": "PROBPENL",
+      "sifparams": {
+        "N": 50
+      }
+    },
+    {
+      "name": "QRTQUAD",
+      "sifparams": {
+        "N": 12,
+        "M": 6
+      }
+    },
+    {
+      "name": "S368",
+      "sifparams": {
+        "N": 50
+      }
+    },
+    {
+      "name": "SCOND1LS",
+      "sifparams": {
+        "N": 50,
+        "LN": 45
+      }
+    },
+    {
+      "name": "SINEALI",
+      "sifparams": {
+        "N": 20
+      }
+    },
+    {
+      "name": "TORSION1",
+      "sifparams": {
+        "Q": 2
+      }
+    },
+    {
+      "name": "TORSIONA",
+      "sifparams": {
+        "Q": 2
+      }
+    }
+  ],
+  "BOUND_LINEQ": [
+    {
+      "name": "AUG2D",
+      "sifparams": {
+        "NX": 3,
+        "NY": 3
+      }
+    },
+    {
+      "name": "BOOTH",
+      "sifparams": null
+    },
+    {
+      "name": "BT3",
+      "sifparams": null
+    },
+    {
+      "name": "GENHS28",
+      "sifparams": null
+    },
+    {
+      "name": "HIMMELBA",
+      "sifparams": null
+    },
+    {
+      "name": "HS9",
+      "sifparams": null
+    },
+    {
+      "name": "HS28",
+      "sifparams": null
+    },
+    {
+      "name": "HS48",
+      "sifparams": null
+    },
+    {
+      "name": "HS49",
+      "sifparams": null
+    },
+    {
+      "name": "HS50",
+      "sifparams": null
+    },
+    {
+      "name": "HS51",
+      "sifparams": null
+    },
+    {
+      "name": "HS52",
+      "sifparams": null
+    },
+    {
+      "name": "ZANGWIL3",
+      "sifparams": null
+    },
+    {
+      "name": "CVXQP1",
+      "sifparams": {
+        "N": 10
+      }
+    },
+    {
+      "name": "CVXQP2",
+      "sifparams": {
+        "N": 10
+      }
+    },
+    {
+      "name": "DEGENLPA",
+      "sifparams": null
+    },
+    {
+      "name": "DEGENLPB",
+      "sifparams": null
+    },
+    {
+      "name": "DUAL1",
+      "sifparams": null
+    },
+    {
+      "name": "DUAL2",
+      "sifparams": null
+    },
+    {
+      "name": "DUAL4",
+      "sifparams": null
+    },
+    {
+      "name": "EXTRASIM",
+      "sifparams": null
+    },
+    {
+      "name": "FCCU",
+      "sifparams": null
+    },
+    {
+      "name": "GOULDQP1",
+      "sifparams": null
+    },
+    {
+      "name": "HONG",
+      "sifparams": null
+    },
+    {
+      "name": "HS41",
+      "sifparams": null
+    },
+    {
+      "name": "HS53",
+      "sifparams": null
+    },
+    {
+      "name": "HS54",
+      "sifparams": null
+    },
+    {
+      "name": "HS55",
+      "sifparams": null
+    },
+    {
+      "name": "HS62",
+      "sifparams": null
+    },
+    {
+      "name": "HS112",
+      "sifparams": null
+    },
+    {
+      "name": "LIN",
+      "sifparams": null
+    },
+    {
+      "name": "LOTSCHD",
+      "sifparams": null
+    },
+    {
+      "name": "NCVXQP1",
+      "sifparams": {
+        "N": 10
+      }
+    },
+    {
+      "name": "NCVXQP2",
+      "sifparams": {
+        "N": 10
+      }
+    },
+    {
+      "name": "NCVXQP3",
+      "sifparams": {
+        "N": 10
+      }
+    },
+    {
+      "name": "NCVXQP4",
+      "sifparams": {
+        "N": 10
+      }
+    },
+    {
+      "name": "NCVXQP5",
+      "sifparams": {
+        "N": 10
+      }
+    },
+    {
+      "name": "NCVXQP6",
+      "sifparams": {
+        "N": 10
+      }
+    },
+    {
+      "name": "ODFITS",
+      "sifparams": null
+    },
+    {
+      "name": "PORTFL1",
+      "sifparams": null
+    },
+    {
+      "name": "PORTFL2",
+      "sifparams": null
+    },
+    {
+      "name": "PORTFL3",
+      "sifparams": null
+    },
+    {
+      "name": "PORTFL4",
+      "sifparams": null
+    },
+    {
+      "name": "PORTFL6",
+      "sifparams": null
+    },
+    {
+      "name": "PORTSNQP",
+      "sifparams": null
+    },
+    {
+      "name": "READING2",
+      "sifparams": {
+        "N": 2
+      }
+    },
+    {
+      "name": "SOSQP1",
+      "sifparams": {
+        "N": 10
+      }
+    },
+    {
+      "name": "SOSQP2",
+      "sifparams": {
+        "N": 10
+      }
+    },
+    {
+      "name": "STCQP1",
+      "sifparams": {
+        "P": 4
+      }
+    },
+    {
+      "name": "STCQP2",
+      "sifparams": {
+        "P": 4
+      }
+    },
+    {
+      "name": "STNQP1",
+      "sifparams": {
+        "P": 4
+      }
+    },
+    {
+      "name": "STNQP2",
+      "sifparams": {
+        "P": 4
+      }
+    },
+    {
+      "name": "SUPERSIM",
+      "sifparams": null
+    },
+    {
+      "name": "TAME",
+      "sifparams": null
+    },
+    {
+      "name": "TWOD",
+      "sifparams": {
+        "N": 2
+      }
+    }
+  ],
+  "BOUND_LINEQ_LININEQ": [
+    {
+      "name": "AVGASA",
+      "sifparams": null
+    },
+    {
+      "name": "AVGASB",
+      "sifparams": null
+    },
+    {
+      "name": "BIGGSC4",
+      "sifparams": null
+    },
+    {
+      "name": "DUALC1",
+      "sifparams": null
+    },
+    {
+      "name": "DUALC2",
+      "sifparams": null
+    },
+    {
+      "name": "DUALC5",
+      "sifparams": null
+    },
+    {
+      "name": "EQC",
+      "sifparams": null
+    },
+    {
+      "name": "EXPFITA",
+      "sifparams": null
+    },
+    {
+      "name": "EXPFITB",
+      "sifparams": null
+    },
+    {
+      "name": "EXPFITC",
+      "sifparams": null
+    },
+    {
+      "name": "HATFLDH",
+      "sifparams": null
+    },
+    {
+      "name": "HS105",
+      "sifparams": null
+    },
+    {
+      "name": "HS118",
+      "sifparams": null
+    },
+    {
+      "name": "HS21",
+      "sifparams": null
+    },
+    {
+      "name": "HS21MOD",
+      "sifparams": null
+    },
+    {
+      "name": "HS24",
+      "sifparams": null
+    },
+    {
+      "name": "HS268",
+      "sifparams": null
+    },
+    {
+      "name": "HS35",
+      "sifparams": null
+    },
+    {
+      "name": "HS35I",
+      "sifparams": null
+    },
+    {
+      "name": "HS35MOD",
+      "sifparams": null
+    },
+    {
+      "name": "HS36",
+      "sifparams": null
+    },
+    {
+      "name": "HS37",
+      "sifparams": null
+    },
+    {
+      "name": "HS44",
+      "sifparams": null
+    },
+    {
+      "name": "HS44NEW",
+      "sifparams": null
+    },
+    {
+      "name": "HS76",
+      "sifparams": null
+    },
+    {
+      "name": "HS76I",
+      "sifparams": null
+    },
+    {
+      "name": "HS86",
+      "sifparams": null
+    },
+    {
+      "name": "HUBFIT",
+      "sifparams": null
+    },
+    {
+      "name": "LSQFIT",
+      "sifparams": null
+    },
+    {
+      "name": "OET1",
+      "sifparams": null
+    },
+    {
+      "name": "OET3",
+      "sifparams": null
+    },
+    {
+      "name": "PENTAGON",
+      "sifparams": null
+    },
+    {
+      "name": "PT",
+      "sifparams": null
+    },
+    {
+      "name": "QC",
+      "sifparams": null
+    },
+    {
+      "name": "QCNEW",
+      "sifparams": null
+    },
+    {
+      "name": "S268",
+      "sifparams": null
+    },
+    {
+      "name": "SIMPLLPA",
+      "sifparams": null
+    },
+    {
+      "name": "SIMPLLPB",
+      "sifparams": null
+    },
+    {
+      "name": "SIPOW1",
+      "sifparams": null
+    },
+    {
+      "name": "SIPOW1M",
+      "sifparams": null
+    },
+    {
+      "name": "SIPOW2",
+      "sifparams": null
+    },
+    {
+      "name": "SIPOW2M",
+      "sifparams": null
+    },
+    {
+      "name": "SIPOW3",
+      "sifparams": null
+    },
+    {
+      "name": "SIPOW4",
+      "sifparams": null
+    },
+    {
+      "name": "STANCMIN",
+      "sifparams": null
+    },
+    {
+      "name": "TFI2",
+      "sifparams": null
+    },
+    {
+      "name": "TFI3",
+      "sifparams": null
+    },
+    {
+      "name": "ZECEVIC2",
+      "sifparams": null
+    }
+  ]
+}

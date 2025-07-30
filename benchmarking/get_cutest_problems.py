@@ -5,6 +5,8 @@ Based on the ones used in
 Gratton, Royer, Vicente & Zhang. Direct search based on probabilistic feasible descent for bound and linearly
 constrained problems. Computational Optimization and Applications 72:3 (2019), pp. 525-559.
 """
+import json
+import numpy as np
 import pycutest
 
 ### Raw data from paper  ###
@@ -310,8 +312,21 @@ SET3_PARAMS['TWOD'] = {'N': 2}
 
 SET4_PARAMS = {}
 
-def main():
 
+def write_json(mydict, output_filename):
+    with open(output_filename, 'w') as f:
+        json.dump(mydict, f, indent=2)
+    return
+
+
+def read_json(input_filename):
+    mydict = None
+    with open(input_filename) as f:
+        mydict = json.load(f)
+    return mydict
+
+
+def check_sifparams():
     print("*** SET1 ***")
     for (probname, n, nbounds) in SET1:
         # print(probname, n, nbounds)  # SET1, SET2
@@ -359,6 +374,78 @@ def main():
             p = pycutest.import_problem(probname, drop_fixed_variables=False, sifParams=sifParams)
         if p.n != n:
             print(probname, n, p)
+    return
+
+
+def create_problem_list(problem_info_filename):
+    set1_info = []
+    set2_info = []
+    set3_info = []
+    set4_info = []
+
+    for (probname, n, nbounds) in SET1:
+        sifParams = SET1_PARAMS.get(probname, None)
+        set1_info.append({'name': probname, 'sifparams': sifParams})
+
+    for (probname, n, nbounds) in SET2:
+        sifParams = SET2_PARAMS.get(probname, None)
+        set2_info.append({'name': probname, 'sifparams': sifParams})
+
+    for (probname, n, nbounds, nle) in SET3:
+        sifParams = SET3_PARAMS.get(probname, None)
+        set3_info.append({'name': probname, 'sifparams': sifParams})
+
+    for (probname, n, nbounds, nle, nli) in SET4:
+        sifParams = SET4_PARAMS.get(probname, None)
+        set4_info.append({'name': probname, 'sifparams': sifParams})
+
+    all_info = {}
+    all_info['SMALL_BOUND_CONS'] = set1_info
+    all_info['LARGE_BOUND_CONS'] = set2_info
+    all_info['BOUND_LINEQ'] = set3_info
+    all_info['BOUND_LINEQ_LININEQ'] = set4_info
+
+    # TODO be aware that SMALL_BOUND_CONS and LARGE_BOUND_CONS contain some of the same problems (+ same dimension)
+
+    write_json(all_info, problem_info_filename)
+    return all_info
+
+
+def get_problem_info(problem_info_file):
+    problem_info = read_json(problem_info_file)
+
+    for probset in problem_info:
+        all_problems = problem_info[probset]
+        print("*** %s [%g problems] ***" % (probset, len(all_problems)))
+        print("{0:^10}{1:^5}{2:^5}{3:^5}{4:^5}".format('NAME', 'N', 'NB', 'LE', 'LI'))
+        for single_prob_info in all_problems:
+            probname = single_prob_info['name']
+            sifParams = single_prob_info['sifparams']
+            p = pycutest.import_problem(probname, drop_fixed_variables=False, sifParams=sifParams)
+            # Get number of variables + bounds + linear equality cons + linear inequality cons
+            n = p.n
+            nbounds = (p.bl > -1e20).sum() + (p.bu < 1e20).sum()
+            if p.m > 0:  # has (linear) constraints
+                nlineq = np.logical_and(p.is_eq_cons, p.is_linear_cons).sum()
+                nlinineq = np.logical_and(np.logical_not(p.is_eq_cons), p.is_linear_cons).sum()
+            else:
+                nlineq = 0
+                nlinineq = 0
+            print("{0:^10}{1:^5}{2:^5}{3:^5}{4:^5}".format(probname, n, nbounds, nlineq, nlinineq))
+    return
+
+
+def main():
+    # 1. Check that the manually determined in SETN_PARAMS are good (N=1,2,3,4)
+    # check_sifparams()
+
+    # 2. Create a nice json file with all problem settings
+    problem_info_file = 'cutest_problems.json'
+    # create_problem_list(problem_info_file)
+
+    # 3. Load json file and report problem statistics to match input info from original paper
+    get_problem_info(problem_info_file)
+
     print("Done")
     return
 
