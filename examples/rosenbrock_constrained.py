@@ -36,7 +36,7 @@ print("")
 # Call solver
 return_iteration_counts = True
 if return_iteration_counts:
-    soln, iter_counts = directsearch.solve_directsearch(rosenbrock, x0, A, b, verbose=True)  # add verbose=True to print more information
+    soln, iter_counts = directsearch.solve_directsearch(rosenbrock, x0, A, b, verbose=True, return_iteration_counts=True)  # add verbose=True to print more information
 else:
     soln = directsearch.solve_directsearch(rosenbrock, x0, A, b, verbose=True)  # add verbose=True to print more information
     iter_counts = None

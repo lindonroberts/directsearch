@@ -308,10 +308,11 @@ def ds(f, x0, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEFAULT_PARAMS['sketch_dim']
     # Start of the optimization process
     fx = f(x)
     nf = 1
+    iteration_counts = {'successful': 0, 'successful_negative_direction': 0, 'unsuccessful': 0}
     if nf >= maxevals:
         if verbose:
             print("Quit (max evals)")
-        return x, fx, nf, EXIT_MAXFUN_REACHED
+        return x, fx, nf, EXIT_MAXFUN_REACHED, iteration_counts
 
     ###############
     # Main loop
@@ -320,7 +321,7 @@ def ds(f, x0, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEFAULT_PARAMS['sketch_dim']
     if verbose:
         print("{0:^5}{1:^15}{2:^15}".format('k', 'f(xk)', 'alpha_k'))
 
-    iteration_counts = {'successful': 0, 'successful_negative_direction': 0, 'unsuccessful': 0}
+
     while nf < maxevals:
         k += 1
         if verbose and k % print_freq == 0:
@@ -357,7 +358,7 @@ def ds(f, x0, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEFAULT_PARAMS['sketch_dim']
                         iteration_counts['unsuccessful'] += 1
                     if verbose:
                         print("{0:^5}{1:^15.4e}{2:^15.2e} - max evals reached".format(k, fx, alpha))
-                    return x, fx, nf, EXIT_MAXFUN_REACHED
+                    return x, fx, nf, EXIT_MAXFUN_REACHED, iteration_counts
 
             # Select iteration type
             if sufficient_decrease:
@@ -394,7 +395,7 @@ def ds(f, x0, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEFAULT_PARAMS['sketch_dim']
                         iteration_counts['unsuccessful'] += 1
                     if verbose:
                         print("{0:^5}{1:^15.4e}{2:^15.2e} - max evals reached".format(k, fx, alpha))
-                    return x, fx, nf, EXIT_MAXFUN_REACHED
+                    return x, fx, nf, EXIT_MAXFUN_REACHED, iteration_counts
 
                 # If sufficient decrease, update xk and stop poll step
                 if sufficient_decrease:
