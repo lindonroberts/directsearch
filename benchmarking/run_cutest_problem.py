@@ -67,9 +67,17 @@ def get_bounds(prob):
 
 def get_linear_cons(prob):
     # Extract (finite) linear constraints in form expected by directsearch, A @ x <= b (and Aeq @ x = beq, not usable yet)
+    print("m = %g" % prob.m)
+    print("is_linear =", prob.is_linear_cons)
+    print("is_eq_cons =", prob.is_eq_cons)
+    print("cl =", prob.cl)
+    print("cu =", prob.cu)
+    print("x0 =", prob.x0)
+    print(prob.cons(prob.x0, index=0, gradient=True))
     if prob.m > 0:  # has (linear) constraints
-        nlineq = np.logical_and(prob.is_eq_cons, prob.is_linear_cons).sum()
-        nlinineq = np.logical_and(np.logical_not(prob.is_eq_cons), prob.is_linear_cons).sum()
+        finite_cons = np.logical_or(prob.cl > PYCUTEST_NEG_INF, prob.cu < PYCUTEST_INF)
+        nlineq = np.logical_and(finite_cons, np.logical_and(prob.is_eq_cons, prob.is_linear_cons)).sum()
+        nlinineq = np.logical_and(finite_cons, np.logical_and(np.logical_not(prob.is_eq_cons), prob.is_linear_cons)).sum()
     else:
         nlineq = 0
         nlinineq = 0
@@ -80,28 +88,42 @@ def get_linear_cons(prob):
     beq = np.zeros((nlineq,), dtype=float)
 
     if nlinineq > 0:
+        idx = 0
         idx_linineq = np.where(np.logical_and(np.logical_not(prob.is_eq_cons), prob.is_linear_cons))[0]
         for i in idx_linineq:
-            g = prob.grad(prob.x0, i)  # gradient of i-th (linear) constraint
+            c, g = prob.cons(prob.x0, index=i, gradient=True)  # cl <= c + g @ (x-x0) <= cu
+            c -= np.dot(g, prob.x0)  # cl <= c + g @ x <= cu
             if prob.cl[i] > PYCUTEST_NEG_INF:
-                # g @ x >= cl[i] --> (-g) @ x <= -cl[i]
-                pass
+                # c + g @ x >= cl[i] --> (-g) @ x <= c - cl[i]
+                A[idx,:] = -g
+                b[idx] = c - prob.cl[i]
+                idx += 1
             if prob.cu[i] < PYCUTEST_INF:
-                # g @ x <= cu[i]
-                pass
-        raise RuntimeError("Linear inequality extraction not implemented yet")
+                # g @ x <= cu[i] - c
+                A[idx, :] = g
+                b[idx] = prob.cu[i] - c
+                idx += 1
 
     if nlineq > 0:
+        idx = 0
         idx_lineq = np.where(np.logical_and(prob.is_eq_cons, prob.is_linear_cons))[0]
-        raise RuntimeError("Linear equality extraction not implemented yet")
+        for i in idx_lineq:
+            c, g = prob.cons(prob.x0, index=i, gradient=True)  # c + g @ (x-x0) = cu
+            c -= np.dot(g, prob.x0)  # c + g @ x = cu
+            if prob.cu[i] < PYCUTEST_INF:
+                # g @ x = cu[i] - c
+                Aeq[idx, :] = g
+                beq[idx] = prob.cu[i] - c
+                idx += 1
 
     return A, b, Aeq, beq
 
 
 def main():
     # idx = 0  # bounds only
-    # idx = 4  # bounds and linear inequalities
-    idx = 5  # everything
+    # idx = 2  # bounds and linear equalities
+    idx = 4  # bounds and linear inequalities
+    # idx = 5  # everything
     prob = get_problem(idx)
     print(prob)
 
@@ -109,23 +131,23 @@ def main():
     A_bd, b_bd = get_bounds(prob)
     nbounds = len(b_bd)
     print("-----")
-    print("Problem has %g bounds (Ax <= b)" % nbounds)
+    print("Problem has %g bounds (A_bd @ x <= b_bd)" % nbounds)
     print(A_bd)
     print(b_bd)
 
-    # Linear constraints
+    # Linear constraints (in the form A @ x <= b and Aeq @ x = beq)
     A, b, Aeq, beq = get_linear_cons(prob)
     nlinineq = len(b)
     nlineq = len(beq)
-    # print("-----")
-    # print("Problem has %g linear inequality constraints (Ax <= b)" % nlinineq)
-    # print(A)
-    # print(b)
-    # print("-----")
-    # print("Problem has %g linear equality constraints (Ax = b)" % nlineq)
-    # print(Aeq)
-    # print(beq)
-    # print("-----")
+    print("-----")
+    print("Problem has %g linear inequality constraints (A @ x <= b)" % nlinineq)
+    print(A)
+    print(b)
+    print("-----")
+    print("Problem has %g linear equality constraints (Aeq @ x = beq)" % nlineq)
+    print(Aeq)
+    print(beq)
+    print("-----")
     print("Done")
     return
 
