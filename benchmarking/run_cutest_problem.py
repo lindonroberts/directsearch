@@ -3,6 +3,8 @@ Basic script to run a single CUTEst problem (with bound/linear constraints)
 """
 import numpy as np
 import pycutest
+from scipy.optimize import linprog
+
 import directsearch
 
 PYCUTEST_INF = 1e20
@@ -67,13 +69,13 @@ def get_bounds(prob):
 
 def get_linear_cons(prob):
     # Extract (finite) linear constraints in form expected by directsearch, A @ x <= b (and Aeq @ x = beq, not usable yet)
-    print("m = %g" % prob.m)
-    print("is_linear =", prob.is_linear_cons)
-    print("is_eq_cons =", prob.is_eq_cons)
-    print("cl =", prob.cl)
-    print("cu =", prob.cu)
-    print("x0 =", prob.x0)
-    print(prob.cons(prob.x0, index=0, gradient=True))
+    # print("m = %g" % prob.m)
+    # print("is_linear =", prob.is_linear_cons)
+    # print("is_eq_cons =", prob.is_eq_cons)
+    # print("cl =", prob.cl)
+    # print("cu =", prob.cu)
+    # print("x0 =", prob.x0)
+    # print(prob.cons(prob.x0, index=0, gradient=True))
     if prob.m > 0:  # has (linear) constraints
         finite_cons = np.logical_or(prob.cl > PYCUTEST_NEG_INF, prob.cu < PYCUTEST_INF)
         nlineq = np.logical_and(finite_cons, np.logical_and(prob.is_eq_cons, prob.is_linear_cons)).sum()
@@ -119,6 +121,49 @@ def get_linear_cons(prob):
     return A, b, Aeq, beq
 
 
+def find_feasible_point(A, b, Aeq, beq):
+    # Given linear constraints A @ x <= b and Aeq @ x = beq, find any feasible point (by solving an LP)
+    # Required to set suitable x0, as directsearch requires feasible initial point
+    n = A.shape[1]  # problem dimension
+    res = linprog(np.zeros((n,), dtype=float), A_ub=A, b_ub=b, A_eq=Aeq, b_eq=beq, bounds=(None, None))
+    if not res.success:
+        raise RuntimeError("Failed to find feasible point")
+    return res.x
+
+def prepare_problem(prob):
+    # Bounds
+    A_bd, b_bd = get_bounds(prob)
+    nbounds = len(b_bd)
+    # print("-----")
+    # print("Problem has %g bounds (A_bd @ x <= b_bd)" % nbounds)
+    # print(A_bd)
+    # print(b_bd)
+
+    # Linear constraints (in the form A @ x <= b and Aeq @ x = beq)
+    A, b, Aeq, beq = get_linear_cons(prob)
+    nlinineq = len(b)
+    nlineq = len(beq)
+    if nlineq > 0:
+        raise RuntimeError("directsearch cannot handle linear equality constraints currently")
+    # print("-----")
+    # print("Problem has %g linear inequality constraints (A @ x <= b)" % nlinineq)
+    # print(A)
+    # print(b)
+    # print("-----")
+    # print("Problem has %g linear equality constraints (Aeq @ x = beq)" % nlineq)
+    # print(Aeq)
+    # print(beq)
+    # print("-----")
+
+    # Stack bounds and linear inequalities
+    Aineq = np.vstack((A_bd, A))
+    bineq = np.concatenate((b_bd, b))
+    # print(Aineq)
+    # print(bineq)
+
+    x0 = find_feasible_point(Aineq, bineq, Aeq, beq)
+    return x0, Aineq, bineq
+
 def main():
     # idx = 0  # bounds only
     # idx = 2  # bounds and linear equalities
@@ -127,27 +172,11 @@ def main():
     prob = get_problem(idx)
     print(prob)
 
-    # Bounds
-    A_bd, b_bd = get_bounds(prob)
-    nbounds = len(b_bd)
-    print("-----")
-    print("Problem has %g bounds (A_bd @ x <= b_bd)" % nbounds)
-    print(A_bd)
-    print(b_bd)
+    x0, Aineq, bineq = prepare_problem(prob)
+    soln, iter_counts = directsearch.solve(prob.obj, x0, A=Aineq, b=bineq, return_iteration_counts=True)
+    print(soln)
+    print(iter_counts)
 
-    # Linear constraints (in the form A @ x <= b and Aeq @ x = beq)
-    A, b, Aeq, beq = get_linear_cons(prob)
-    nlinineq = len(b)
-    nlineq = len(beq)
-    print("-----")
-    print("Problem has %g linear inequality constraints (A @ x <= b)" % nlinineq)
-    print(A)
-    print(b)
-    print("-----")
-    print("Problem has %g linear equality constraints (Aeq @ x = beq)" % nlineq)
-    print(Aeq)
-    print(beq)
-    print("-----")
     print("Done")
     return
 
