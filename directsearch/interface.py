@@ -98,7 +98,8 @@ def solve(f, x0, A=None, b=None, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEFAULT_P
           verbose=DEFAULT_PARAMS['verbose'], print_freq=DEFAULT_PARAMS['print_freq'],
           use_stochastic_three_points=DEFAULT_PARAMS['use_stochastic_three_points'],
           rho_uses_normd=DEFAULT_PARAMS['rho_uses_normd'],
-          return_iteration_counts=DEFAULT_PARAMS['return_iteration_counts']):
+          return_iteration_counts=DEFAULT_PARAMS['return_iteration_counts'],
+          poll_normal_cone=DEFAULT_PARAMS['poll_normal_cone']):
     """
         Apply a direct-search method to an optimization problem.
 
@@ -154,6 +155,9 @@ def solve(f, x0, A=None, b=None, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEFAULT_P
                 Default: See DEFAULT_PARAMS['rho_uses_normd']
             return_iteration_counts: Boolean indicating whether to return an iteration count dictionary as extra output
                 Default: See DEFAULT_PARAMS['return_iteration_counts']
+            poll_normal_cone: Boolean indicating if the poll steps should include
+                checking the normal cone (or just the tangent cone, if False)
+                Default: See DEFAULT_PARAMS['poll_normal_cone']
 
         
         Output:
@@ -173,7 +177,8 @@ def solve(f, x0, A=None, b=None, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEFAULT_P
                                                        alpha0=alpha0, alpha_max=alpha_max, alpha_min=alpha_min,
                                                        gamma_inc=gamma_inc, gamma_dec=gamma_dec,
                                                        verbose=verbose, print_freq=print_freq,
-                                                       rho_uses_normd=rho_uses_normd)
+                                                       rho_uses_normd=rho_uses_normd,
+                                                       poll_normal_cone=poll_normal_cone)
     if return_iteration_counts:
         return OptimResults(xmin, fmin, nf, flag), iter_counts
     else:

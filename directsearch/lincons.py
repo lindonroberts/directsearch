@@ -23,7 +23,8 @@ def nearby_constraints(A, b, x, alpha):
     assert b.shape == (m,), "A and b have incompatible dimensions"
     assert x.shape == (n,), "A and x have incompatible dimensions"
     assert alpha > 0.0, "alpha must be strictly positive"
-    assert np.all(A @ x <= b), "x must be feasible, Ax<=b"
+    ZERO_THRESH = 10.0 * np.finfo(float).eps
+    assert np.all(A @ x <= b + ZERO_THRESH), "x must be feasible, Ax<=b"
     s = b - A @ x  # all >= 0
     J = []
     for j in range(m):
@@ -277,7 +278,8 @@ def ds_lincons(f, x0, A=None, b=None,
                gamma_dec=DEFAULT_PARAMS['gamma_dec'],
                verbose=DEFAULT_PARAMS['verbose'],
                print_freq=DEFAULT_PARAMS['print_freq'],
-               rho_uses_normd=DEFAULT_PARAMS['rho_uses_normd']):
+               rho_uses_normd=DEFAULT_PARAMS['rho_uses_normd'],
+               poll_normal_cone=DEFAULT_PARAMS['poll_normal_cone']):
     """
         A generic direct-search code for linearly constrained black-box optimization.
 
@@ -315,6 +317,9 @@ def ds_lincons(f, x0, A=None, b=None,
             rho_uses_normd: Boolean indicating whether the forcing function should
             account for the norm of the direction.
                 Default: See DEFAULT_PARAMS['rho_uses_normd']
+            poll_normal_cone: Boolean indicating if the poll steps should include
+                checking the normal cone (or just the tangent cone, if False)
+                Default: See DEFAULT_PARAMS['poll_normal_cone']
 
         Outputs:
             x: Best solution found (vector of same dimension than x0).
@@ -365,6 +370,7 @@ def ds_lincons(f, x0, A=None, b=None,
     gamma_inc = float(gamma_inc)
     gamma_dec = float(gamma_dec)
     verbose = bool(verbose)
+    poll_normal_cone = bool(poll_normal_cone)
 
     # Compute the maximum number of evaluations according to the problem dimension
     if maxevals is None:
@@ -422,7 +428,7 @@ def ds_lincons(f, x0, A=None, b=None,
             print("{0:^5}{1:^15.4e}{2:^15.2e}".format(k, fx, alpha))
 
         # Generate poll directions adapted to linear constraints
-        Dk, Dk_neg = get_poll_directions(A, b, x, alpha, verbose=False)
+        Dk, Dk_neg = get_poll_directions(A, b, x, alpha, include_negative_directions=poll_normal_cone, verbose=False)
         # WARNING: poll directions Dk[:,i] are already scaled by alpha, don't multiply by alpha below
         # print("******")
         # print("At x =", x, ", alpha = %g" % alpha)

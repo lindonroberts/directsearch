@@ -67,6 +67,7 @@ DEFAULT_PARAMS['poll_scale_prob'] = 0.0 # Probabilty of direction scaling
 DEFAULT_PARAMS['poll_scale_factor'] = 1.0 # Scaling factor for direction norms
 DEFAULT_PARAMS['rho_uses_normd'] = True # Forcing function based on direction norm
 DEFAULT_PARAMS['return_iteration_counts'] = False # include iteration count dictionary as extra return parameter?
+DEFAULT_PARAMS['poll_normal_cone'] = True  # for linear constraints, include normal cone in poll directions?
 
 # Exit flags
 EXIT_ALPHA_MIN_REACHED = 0  # alpha <= alpha_min
