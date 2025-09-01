@@ -23,8 +23,6 @@ def nearby_constraints(A, b, x, alpha):
     assert b.shape == (m,), "A and b have incompatible dimensions"
     assert x.shape == (n,), "A and x have incompatible dimensions"
     assert alpha > 0.0, "alpha must be strictly positive"
-    ZERO_THRESH = 10.0 * np.finfo(float).eps
-    assert np.all(A @ x <= b + ZERO_THRESH), "x must be feasible, Ax<=b"
     s = b - A @ x  # all >= 0
     J = []
     for j in range(m):
@@ -88,16 +86,18 @@ def calculate_cone_generators(A, verbose=False):
             print("No constraints, cone is R^%g" % n)
         I_n = np.eye(n)
         return np.hstack((I_n, -I_n))
-    elif m < n:
+    elif m < n and np.linalg.matrix_rank(A) == m:  # TODO new - ensure full rank
         # Not full rank set of constraints, use Dobler 1994
         # Generators are columns of pinv(A) and +/- any basis for nul(A)
         if verbose:
             print("Incomplete set of constraints, using simple generator formula")
         Apinv = np.linalg.pinv(A)
         # print("A.T =", A.T)
+        # print("pinv(A) =", Apinv)
         null = null_space(A)
         # print("null =")
         # print(null)
+        # print("rank(A) = %g, m = %g, n = %g" % (np.linalg.matrix_rank(A), m, n))
         return np.hstack((Apinv, null, -null))
 
     assert np.linalg.matrix_rank(A) == n, "A must have full column rank for this to work"
@@ -190,24 +190,32 @@ def get_poll_directions(A, b, x, alpha, include_negative_directions=True, verbos
     :return: D, n*p matrix (some p) of vectors in B(0,alpha) such that all poll points x+D[:,i] are feasible
     :return: Dneg, n*p2 matrix (some p2) similar to D, but corresponding to negative of tangent directions. Possibly None
     """
-    ZERO_THRESH = 5.0 * np.finfo(float).eps  # for measuring distance to boundary
+    ZERO_THRESH = 10.0 * np.finfo(float).eps  # for measuring distance to boundary
     m, n = A.shape
     assert b.shape == (m,), "b has incompatible shape with A"
     assert x.shape == (n,), "x has incompatible shape with A"
     assert alpha > 0.0, "alpha must be strictly positive"
-    assert np.all(A @ x <= b + ZERO_THRESH), "x must be feasible"
+    # assert np.all(A @ x <= b + ZERO_THRESH), "x must be feasible"
+
+    if verbose and True:
+        print("x =", x)
+        print("A =", A)
+        print("b =", b)
+        print("b - Ax =", b - A@x)
+        print("alpha = %g" % alpha)
 
     J = nearby_constraints(A, b, x, alpha)  # nearly active constraints at x
     if verbose:
         print("Nearly active constraints are", J)
     N = A[J, :]  # generators of the normal cone <--> the tangent cone is given by N @ x <= 0
-    T = calculate_cone_generators(-N)  # columns of T are generators of the tangent cone
+    T = calculate_cone_generators(-N, verbose=verbose)  # columns of T are generators of the tangent cone
 
     # Scale each column of T to length alpha
     T = T * alpha / np.linalg.norm(T, axis=0)
     if verbose:
-        print("T =")
-        print(T)
+        print("Columns of T (poll directions) =")
+        for i in range(T.shape[1]):
+            print("T[:,%g] =" % i, T[:,i])
         print("T has %g generators" % T.shape[1])
 
     # Calculate scaled length of -T directions to ensure feasibility

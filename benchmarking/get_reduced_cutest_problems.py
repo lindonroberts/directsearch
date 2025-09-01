@@ -111,11 +111,11 @@ def get_linear_cons(prob):
 
 def feasibility(A, b, Aeq, beq, x):
     # Feasibility of x w.r.t. A @ x <= b and Aeq @ x = beq
-    if len(b) > 0:
+    if b is not None and len(b) > 0:
         f_ineq = np.max(np.abs(np.maximum(A @ x - b, 0.0)))  # || max(A @ x - b, 0) ||_{infty}
     else:
         f_ineq = 0.0
-    if len(beq) > 0:
+    if beq is not None and len(beq) > 0:
         f_eq = np.max(np.abs(Aeq @ x - beq))  # ||Aeq @ x - beq||_{infty}
     else:
         f_eq = 0.0
