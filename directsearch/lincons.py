@@ -86,7 +86,7 @@ def calculate_cone_generators(A, verbose=False):
             print("No constraints, cone is R^%g" % n)
         I_n = np.eye(n)
         return np.hstack((I_n, -I_n))
-    elif m < n and np.linalg.matrix_rank(A) == m:  # TODO new - ensure full rank
+    elif m < n and np.linalg.matrix_rank(A) == m:
         # Not full rank set of constraints, use Dobler 1994
         # Generators are columns of pinv(A) and +/- any basis for nul(A)
         if verbose:
@@ -100,26 +100,30 @@ def calculate_cone_generators(A, verbose=False):
         # print("rank(A) = %g, m = %g, n = %g" % (np.linalg.matrix_rank(A), m, n))
         return np.hstack((Apinv, null, -null))
 
-    assert np.linalg.matrix_rank(A) == n, "A must have full column rank for this to work"
-
-    if m == n:
+    if m == n and np.linalg.matrix_rank(A) == n:
         # A invertible, use Dobler 1994 approach without needing null space
         if verbose:
             print("Simple generator formula")
         return np.linalg.pinv(A)
 
-    # m > n case: first find a set of n linearly independent constraints, then add in the remainder
-    _, _, piv = qr(A.T, mode='economic', pivoting=True)
-    J = piv[:n]
-    R = np.linalg.pinv(A[J, :])
-    if verbose:
-        print("Initially selecting n linearly independent constraints", J)
-        print("R =")
-        print(R)
-    cons_to_add = np.setdiff1d(list(range(m)), J)
+    if np.linalg.matrix_rank(A) == n:
+        # m > n case: first find a set of n linearly independent constraints, then add in the remainder
+        _, _, piv = qr(A.T, mode='economic', pivoting=True)
+        J = piv[:n]
+        R = np.linalg.pinv(A[J, :])
+        if verbose:
+            print("Initially selecting n linearly independent constraints", J)
+            print("R =")
+            print(R)
+
+    else:
+        # Rank-deficient case: use the implementation from Clement's doubledescLI.m function from dspfd code
+        J = np.array([], dtype=int)
+        R = np.hstack((np.eye(n), -np.eye(n)), dtype=float)
 
     # Add each remaining constraint (not in J), one at a time
     # At the start of each iteration, the columns of R are a generating set for the cone given by inequalities A[J, :]
+    cons_to_add = np.setdiff1d(list(range(m)), J)
 
     ZERO_THRESH = 10.0 * np.finfo(float).eps  # for determining Iplus, Izero and Iminus
     for j in cons_to_add:
@@ -128,7 +132,7 @@ def calculate_cone_generators(A, verbose=False):
         v = A[j, :] @ R
         if verbose:
             print("v =", v)
-        ka = np.linalg.matrix_rank(A[J, :])
+        ka = np.linalg.matrix_rank(A[J, :]) if len(J) > 0 else 0  # handle rank-deficient case (J=[]) explicitly
 
         Iplus = np.nonzero(v > ZERO_THRESH)[0]
         Izero = np.nonzero(np.abs(v) <= ZERO_THRESH)[0]
@@ -248,6 +252,31 @@ def get_poll_directions(A, b, x, alpha, include_negative_directions=True, verbos
                 if alpha_i > ZERO_THRESH:
                     Tneg = np.hstack((Tneg, -alpha_i * ti.reshape((n, 1))))
 
+            # If rank(T) < n --- coming from rank-deficient active constraints --- then we have more
+            # directions we can add, namely +/-null(directions in T)
+            if np.linalg.matrix_rank(T) < n:
+                null_T = null_space(T.T)  # each column is a null space direction
+                if verbose:
+                    print("null(T) = ", null_T)
+                Tnew = np.hstack((null_T, -null_T))  # new directions to add
+                for i in range(Tnew.shape[1]):
+                    ti = Tnew[:, i]
+                    if verbose:
+                        print("Adding null space direction i=%g" % i, "ti =", ti)
+                    if np.any(T.T @ ti <= -(1.0 - ZERO_THRESH) * alpha ** 2):
+                        # Found another column tj such that dot(tj, ti) == -alpha^2, i.e. tj = -ti (since both have length alpha)
+                        # No need to add -ti to poll directions, since it's already there
+                        if verbose:
+                            print("Found -ti already in T, skipping")
+                        continue
+                    A_ti = A @ ti
+                    idx = np.nonzero(A_ti < -ZERO_THRESH)[0]
+                    alpha_i = np.min(s[idx] / (-A_ti[idx])) if len(idx) > 0 else 1.0
+                    alpha_i = max(min(alpha_i, 1.0), 0.0)  # always ensure 0 <= alpha_i <= 1
+                    if verbose:
+                        print("alpha_i = %g" % alpha_i)
+                    if alpha_i > ZERO_THRESH:
+                        Tneg = np.hstack((Tneg, -alpha_i * ti.reshape((n, 1))))
             return T, Tneg
         else:
             # Exclude negative directions, for comparison purposes
@@ -323,7 +352,7 @@ def ds_lincons(f, x0, A=None, b=None,
             be displayed.
                 Default: See DEFAULT_PARAMS['print_freq']
             rho_uses_normd: Boolean indicating whether the forcing function should
-            account for the norm of the direction.
+            account for the norm of the direction. Always set to False if poll_normal_cone=True.
                 Default: See DEFAULT_PARAMS['rho_uses_normd']
             poll_normal_cone: Boolean indicating if the poll steps should include
                 checking the normal cone (or just the tangent cone, if False)
@@ -345,12 +374,12 @@ def ds_lincons(f, x0, A=None, b=None,
     # Initialization
     # Set some sensible defaults for: sufficient decrease threshold, # evaluations, initial step size
     # Set the forcing function
-    rho_uses_normd = bool(rho_uses_normd)
+    poll_normal_cone = bool(poll_normal_cone)
     if rho is None:
-        if rho_uses_normd:
+        if rho_uses_normd and not poll_normal_cone:  # cannot use this when poll_normal_cone=True
             rho_to_use = lambda t, normd: min(1e-5, 1e-5 * (t * normd) ** 2)
         else:
-            rho_to_use = lambda t: 1e-5 * t ** 2
+            rho_to_use = lambda t: min(1e-5, 1e-5 * t ** 2)
     else:
         rho_to_use = rho
 
@@ -378,7 +407,6 @@ def ds_lincons(f, x0, A=None, b=None,
     gamma_inc = float(gamma_inc)
     gamma_dec = float(gamma_dec)
     verbose = bool(verbose)
-    poll_normal_cone = bool(poll_normal_cone)
 
     # Compute the maximum number of evaluations according to the problem dimension
     if maxevals is None:
@@ -761,6 +789,17 @@ def poll_set_example():
     b = np.array([1.0, 2.0])
     x = np.array([0.95, 0.99])
     alpha = 0.1
+    D = get_poll_directions(A, b, x, alpha)
+    print("D =")
+    print(D)
+
+    # Rank deficient case
+    print("*** 13 Rank deficient ***")
+    A = np.array([[0.0, 1.0],  # x2 <= 1
+                  [0.0, -1.0]])  # x2 >= 0
+    b = np.array([1.0, 0.0])
+    x = np.array([0.5, 0.5])
+    alpha = 1.0  # so both constraints are active
     D = get_poll_directions(A, b, x, alpha)
     print("D =")
     print(D)

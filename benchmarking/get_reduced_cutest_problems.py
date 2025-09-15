@@ -211,7 +211,114 @@ def reduce_problems(outfile):
     return
 
 
+def get_feasible_x0_demo():
+    # Simple demo of finding feasible point via projection
+    # see_all = True  # see all projection results
+    see_all = False  # see details for specific problems
+
+    selected_problems = ['ALLINIT', 'CAMEL6', 'BT3', 'HS48', 'HS55', 'AVGASA', 'HS24', 'BIGGSC4']
+
+    all_problems = read_json('cutest_problems.json')
+    if see_all:
+        for problem_set in all_problems:
+            print("*** %s ***" % problem_set)
+            print("{0:^10}{1:^5}{2:^5}{3:^5}{4:^5}".format('NAME', 'N', 'NB', 'LE', 'LI'))
+            for p in all_problems[problem_set]:
+                probname = p['name']
+                sifparams = p['sifparams']
+                prob = get_cutest_problem(probname, sifParams=sifparams)
+                A_bounds, b_bounds = get_bounds(prob)  # bounds in the form A_bounds @ x <= b_bounds
+                A_ineq, b_ineq, Aeq, beq = get_linear_cons(
+                    prob)  # linear constraints in the form A_ineq @ x <= b_ineq and Aeq @ x == b_eq
+                nbounds = len(b_bounds)
+                nlinineq = len(b_ineq)
+                nlineq = len(beq)
+
+                # Calculate feasible x0
+                A = np.vstack((A_bounds, A_ineq))
+                b = np.concatenate((b_bounds, b_ineq))
+                x0 = find_feasible_point(A, b, Aeq, beq, prob.x0)
+
+                print("{0:^10}{1:^5}{2:^5}{3:^5}{4:^5}".format(probname, prob.n, nbounds, nlineq, nlinineq))
+                if x0 is not None:
+                    print(np.linalg.norm(x0 - prob.x0))
+                else:
+                    print("Could not find x0")
+
+    else:
+        for problem_set in all_problems:
+            for p in all_problems[problem_set]:
+                probname = p['name']
+                if probname not in selected_problems:
+                    continue
+
+                sifparams = p['sifparams']
+                prob = get_cutest_problem(probname, sifParams=sifparams)
+                A_bounds, b_bounds = get_bounds(prob)  # bounds in the form A_bounds @ x <= b_bounds
+                A_ineq, b_ineq, Aeq, beq = get_linear_cons(
+                    prob)  # linear constraints in the form A_ineq @ x <= b_ineq and Aeq @ x == b_eq
+                nbounds = len(b_bounds)
+                nlinineq = len(b_ineq)
+                nlineq = len(beq)
+
+                # Calculate feasible x0, A @ x <= b and Aeq @ x = beq
+                A = np.vstack((A_bounds, A_ineq))
+                b = np.concatenate((b_bounds, b_ineq))
+                x0 = find_feasible_point(A, b, Aeq, beq, prob.x0)
+
+                print("*** %s ***" % prob.name)
+                if len(b) > 0 and len(beq) > 0:
+                    # Ax <= b --> -A*x >= -b
+                    Afull = np.vstack((-A, Aeq, -Aeq))  # Aeq*x == beq --> Aeq*x >= beq and -Aeq*x >= -beq
+                    bfull = np.concatenate((-b, beq, -beq))
+                elif len(b) > 0:
+                    # LI only
+                    Afull = -A
+                    bfull = -b
+                else:
+                    # LE only
+                    Afull = np.vstack((Aeq, -Aeq))
+                    bfull = np.concatenate((beq, -beq))
+
+                print("A.shape =", Afull.shape)
+                m, n = Afull.shape
+                for i in range(m):
+                    this_line = ""
+                    for j in range(n):
+                        this_line += "A[%g*n+%g] = %g; " % (i, j, Afull[i,j])
+                    print(this_line)
+
+                this_line = ""
+                for i in range(m):
+                    this_line += "b[%g] = %g; " % (i, bfull[i])
+                    if (i+1) % 5 == 0:
+                        print(this_line)
+                        this_line = ""
+                print(this_line)
+
+                this_line = ""
+                for i in range(n):
+                    this_line += "x0[%g] = %g; " % (i, prob.x0[i])
+                    if (i + 1) % 5 == 0:
+                        print(this_line)
+                        this_line = ""
+                print(this_line)
+
+                this_line = ""
+                for i in range(n):
+                    this_line += "xtrue[%g] = %.17g; " % (i, x0[i])
+                    if (i + 1) % 5 == 0:
+                        print(this_line)
+                        this_line = ""
+                print(this_line)
+                print("")
+    return
+
 def main():
+    if True:
+        get_feasible_x0_demo()
+        return
+
     reduced_problems_file = 'cutest_problems_reduced.json'
     if False:
         reduce_problems(reduced_problems_file)

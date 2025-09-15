@@ -69,8 +69,13 @@ def solve_all_problems(run_name, budget_in_gradients=200, skip_existing=True):
     # All directsearch.solve() settings for a given run should be put here
     if run_name == 'tangent_only':
         poll_normal_cone = False
+        rho_uses_normd = True  # default choice
+    elif run_name == 'tangent_only_simple_rho':
+        poll_normal_cone = False
+        rho_uses_normd = False  # to match with tangent_and_normal
     elif run_name == 'tangent_and_normal':
         poll_normal_cone = True
+        rho_uses_normd = False  # required when poll_normal_cone=Tru
     else:
         raise RuntimeError("Unknown run_name '%s'" % run_name)
 
@@ -103,6 +108,7 @@ def solve_all_problems(run_name, budget_in_gradients=200, skip_existing=True):
             this_results['budget_in_gradients'] = budget_in_gradients
             this_results['maxfun'] = maxfun
             this_results['poll_normal_cone'] = poll_normal_cone
+            this_results['rho_uses_normd'] = rho_uses_normd
 
             print("- [idx=%g] %s (n=%g)" % (idx, prob.name, prob.n))
             objfun.clear()
@@ -111,6 +117,7 @@ def solve_all_problems(run_name, budget_in_gradients=200, skip_existing=True):
                 soln, iter_counts = directsearch.solve(objfun, objfun.x0, maxevals=maxfun,
                                                        A=objfun.A, b=objfun.b,
                                                        return_iteration_counts=True,
+                                                       rho_uses_normd=rho_uses_normd,
                                                        poll_normal_cone=poll_normal_cone)
                 stop_time, stop_cpu_clock = datetime.datetime.now(), time.process_time()
             except Exception as e:
@@ -139,6 +146,7 @@ def main():
     budget_in_gradients = 200
     run_names = []
     run_names.append('tangent_only')
+    run_names.append('tangent_only_simple_rho')
     run_names.append('tangent_and_normal')
 
     skip_existing = True  # new runs only
