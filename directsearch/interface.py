@@ -99,7 +99,8 @@ def solve(f, x0, A=None, b=None, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEFAULT_P
           use_stochastic_three_points=DEFAULT_PARAMS['use_stochastic_three_points'],
           rho_uses_normd=DEFAULT_PARAMS['rho_uses_normd'],
           return_iteration_counts=DEFAULT_PARAMS['return_iteration_counts'],
-          poll_normal_cone=DEFAULT_PARAMS['poll_normal_cone']):
+          poll_normal_cone=DEFAULT_PARAMS['poll_normal_cone'],
+          detailed_info_lincons=False):
     """
         Apply a direct-search method to an optimization problem.
 
@@ -172,17 +173,25 @@ def solve(f, x0, A=None, b=None, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEFAULT_P
                                    poll_type=poll_type, alpha0=alpha0, alpha_max=alpha_max, alpha_min=alpha_min,
                                    gamma_inc=gamma_inc, gamma_dec=gamma_dec, verbose=verbose, print_freq=print_freq,
                                    use_stochastic_three_points=use_stochastic_three_points, rho_uses_normd=rho_uses_normd)
+        info = None
     else:
-        xmin, fmin, nf, flag, iter_counts = ds_lincons(f, x0, A, b, rho=rho, maxevals=maxevals,
+        xmin, fmin, nf, flag, iter_counts, info = ds_lincons(f, x0, A, b, rho=rho, maxevals=maxevals,
                                                        alpha0=alpha0, alpha_max=alpha_max, alpha_min=alpha_min,
                                                        gamma_inc=gamma_inc, gamma_dec=gamma_dec,
                                                        verbose=verbose, print_freq=print_freq,
                                                        rho_uses_normd=rho_uses_normd,
-                                                       poll_normal_cone=poll_normal_cone)
+                                                       poll_normal_cone=poll_normal_cone,
+                                                       detailed_info=detailed_info_lincons)
     if return_iteration_counts:
-        return OptimResults(xmin, fmin, nf, flag), iter_counts
+        if detailed_info_lincons:
+            return OptimResults(xmin, fmin, nf, flag), iter_counts, info
+        else:
+            return OptimResults(xmin, fmin, nf, flag), iter_counts
     else:
-        return OptimResults(xmin, fmin, nf, flag)
+        if detailed_info_lincons:
+            return OptimResults(xmin, fmin, nf, flag), info
+        else:
+            return OptimResults(xmin, fmin, nf, flag)
 
 ###############################################################################
 def solve_directsearch(f, x0, A=None, b=None, rho=DEFAULT_PARAMS['rho'], maxevals=DEFAULT_PARAMS['maxevals'],

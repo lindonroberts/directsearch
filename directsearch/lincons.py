@@ -9,9 +9,18 @@ of the nearby tangent cone
 """
 import numpy as np
 from scipy.linalg import null_space, qr
+from scipy.optimize import linprog, minimize, LinearConstraint, NonlinearConstraint, direct
 
 from .ds import DEFAULT_PARAMS, EXIT_MAXFUN_REACHED, EXIT_ALPHA_MIN_REACHED
 
+# Different ways we can get the generators for the tangent cone
+# for detailed analysis purposes
+GENERATORS_UNCONSTRAINED = 0
+GENERATORS_LINEARLY_INDEPENDENT = 1
+GENERATORS_DOUBLE_DESCENT = 2
+GENERATORS_NORMAL_ONLY = 3  # tangent cone is {0} so using normal directions
+GENERATORS_TYPE_STR = {GENERATORS_UNCONSTRAINED: 'unconstrained', GENERATORS_LINEARLY_INDEPENDENT: 'pseudoinverse',
+                       GENERATORS_DOUBLE_DESCENT: 'double_descent', GENERATORS_NORMAL_ONLY: 'normal_cone'}
 
 def nearby_constraints(A, b, x, alpha):
     """
@@ -85,7 +94,7 @@ def calculate_cone_generators(A, verbose=False):
         if verbose:
             print("No constraints, cone is R^%g" % n)
         I_n = np.eye(n)
-        return np.hstack((I_n, -I_n))
+        return np.hstack((I_n, -I_n)), GENERATORS_UNCONSTRAINED
     elif m < n and np.linalg.matrix_rank(A) == m:
         # Not full rank set of constraints, use Dobler 1994
         # Generators are columns of pinv(A) and +/- any basis for nul(A)
@@ -98,13 +107,13 @@ def calculate_cone_generators(A, verbose=False):
         # print("null =")
         # print(null)
         # print("rank(A) = %g, m = %g, n = %g" % (np.linalg.matrix_rank(A), m, n))
-        return np.hstack((Apinv, null, -null))
+        return np.hstack((Apinv, null, -null)), GENERATORS_LINEARLY_INDEPENDENT
 
     if m == n and np.linalg.matrix_rank(A) == n:
         # A invertible, use Dobler 1994 approach without needing null space
         if verbose:
             print("Simple generator formula")
-        return np.linalg.pinv(A)
+        return np.linalg.pinv(A), GENERATORS_LINEARLY_INDEPENDENT
 
     if np.linalg.matrix_rank(A) == n:
         # m > n case: first find a set of n linearly independent constraints, then add in the remainder
@@ -177,7 +186,7 @@ def calculate_cone_generators(A, verbose=False):
             print("R =")
             print(R)
 
-    return R
+    return R, GENERATORS_DOUBLE_DESCENT
 
 
 def get_poll_directions(A, b, x, alpha, include_negative_directions=True, verbose=False):
@@ -212,7 +221,7 @@ def get_poll_directions(A, b, x, alpha, include_negative_directions=True, verbos
     if verbose:
         print("Nearly active constraints are", J)
     N = A[J, :]  # generators of the normal cone <--> the tangent cone is given by N @ x <= 0
-    T = calculate_cone_generators(-N, verbose=verbose)  # columns of T are generators of the tangent cone
+    T, gen_type = calculate_cone_generators(-N, verbose=verbose)  # columns of T are generators of the tangent cone
 
     # Scale each column of T to length alpha
     T = T * alpha / np.linalg.norm(T, axis=0)
@@ -277,10 +286,10 @@ def get_poll_directions(A, b, x, alpha, include_negative_directions=True, verbos
                         print("alpha_i = %g" % alpha_i)
                     if alpha_i > ZERO_THRESH:
                         Tneg = np.hstack((Tneg, -alpha_i * ti.reshape((n, 1))))
-            return T, Tneg
+            return T, Tneg, gen_type, len(J)
         else:
             # Exclude negative directions, for comparison purposes
-            return T, None
+            return T, None, gen_type, len(J)
     else:
         # Tangent cone is {0}, i.e. normal cone spans R^n
         # i.e. use these as the poll directions (after suitable scaling)
@@ -302,8 +311,86 @@ def get_poll_directions(A, b, x, alpha, include_negative_directions=True, verbos
             if alpha_i > ZERO_THRESH:
                 poll_dirns = np.hstack((poll_dirns, alpha_i * ni.reshape((n, 1))))
 
-        return poll_dirns, None
+        return poll_dirns, None, GENERATORS_NORMAL_ONLY, len(J)
 
+def compute_lambda(x, A, b, D, Dneg, alpha):
+    """
+    For a given lambda-PSS, compute/estimate the value of lambda
+
+    Have:
+    - current (feasible) iterate x
+    - full list of linear inequality constraints A @ x <= b
+    - set of poll directions = columns of matrix D and Dneg (which may be None)
+    - search radius alpha
+    :return:
+    """
+
+    # We can estimate lambda by solving:
+    # max_{v} (min_{c} dot(c, e) subject to Dc=v, c >= 0), subject to Av <= b-Ax, -alpha <= v <= alpha or ||v|| <= alpha
+    # (c has length = number poll directions = D.shape[1], v has same length as x)
+
+    n = len(x)
+    nc1 = D.shape[1]
+    nc2 = 0 if Dneg is None else Dneg.shape[1]
+    nc = nc1 + nc2
+
+    c_cost = np.ones((nc,), dtype=float)
+    c_bounds = (0.0, None)  # c >= 0
+    c_D = np.zeros((n, nc), dtype=float)
+    c_D[:, :nc1] = D
+    c_D[:, nc1:] = Dneg
+    s = np.maximum(b - A @ x, 0.0)  # need A*v <= s
+    def obj_v(v):
+        # Given a v, determine the objective value
+        if np.all(A @ v <= s) and np.linalg.norm(v) <= alpha:
+            # Feasible v, solve for c
+            # min_{c} dot(c, e) subject to Dc=v, c >= 0
+            # Minimum must be >= 0 always
+            soln = linprog(c_cost, A_eq=c_D, b_eq=v, bounds=c_bounds)
+            if soln.success:
+                return -soln.fun  # negative --> max_{v} becomes min_{v}
+            elif soln.status == 2:
+                # LP is infeasible --> not a PSS --> Lambda should be infinite
+                return -np.finfo(float).min  # large negative value, -1.8e308
+            elif 'Invalid input' in soln.message:
+                return np.nan
+            else:
+                raise RuntimeError("Inner LP solve failed, status = %g" % soln.status)
+        else:
+            # Infeasible v, return value that won't be chosen (i.e. large, since solving min_{v} problem)
+            return np.finfo(float).max  # large positive value, 1.8e308
+
+    # Solve min_{v} obj_v(v) subject to -alpha <= v <= alpha (tightest bounds that cover ||v||<=alpha constraint)
+    soln_v = direct(obj_v, bounds=[(-alpha, alpha) for _ in range(n)])  # setting maxfun avoids errors
+
+    # Solve the inner problem for a given v
+
+    # def eval_min_c(v):
+    #     # min_{c} dot(c, e) subject to Dc=v, c >= 0
+    #     soln = linprog(c_cost, A_eq=c_D, b_eq=v, bounds=c_bounds)
+    #     if soln.success:
+    #         return soln.fun
+    #     elif soln.status == 2:
+    #         return np.inf  # infeasible LP
+    #     else:
+    #         raise RuntimeError("Inner LP solve failed, status = %g" % soln.status)
+    #
+    # # Solve problem: max_{v} eval_min_c(v), subject to Av <= b-Ax, ||v|| <= alpha
+    # v0 = np.zeros(x.shape, dtype=float)
+    # v_lincons = LinearConstraint(A, lb=-np.inf, ub=np.maximum(b - A @ x, 0.0))  # Av <= b-Ax
+    # v_nlcons = NonlinearConstraint(lambda v: np.dot(v, v), lb=-np.inf, ub=alpha**2, jac=lambda v : 2*v)  # ||v||^2 <= alpha^2
+    # soln_v = minimize(lambda v: -eval_min_c(v), v0, constraints=[v_lincons, v_nlcons], method='COBYLA')
+    if np.isfinite(soln_v.fun):
+    # if soln_v.success or soln_v.status == 1:
+        # status=1 --> "performed more than maxfun evaluations" (not actually a problem)
+        print("lambda: alpha = %g, solve = %g" % (alpha, -soln_v.fun))
+        return -soln_v.fun  # convert min_{v} to max_{v} by flipping sign
+    else:
+        print("lambda solve failed, status = %g" % soln_v.status)
+        print("  - message =", soln_v.message)
+        print("  - soln.x =", soln_v.x)
+        print("  - soln.fun =", soln_v.fun)
+        return np.nan
 
 def ds_lincons(f, x0, A=None, b=None,
                rho=DEFAULT_PARAMS['rho'],
@@ -316,7 +403,8 @@ def ds_lincons(f, x0, A=None, b=None,
                verbose=DEFAULT_PARAMS['verbose'],
                print_freq=DEFAULT_PARAMS['print_freq'],
                rho_uses_normd=DEFAULT_PARAMS['rho_uses_normd'],
-               poll_normal_cone=DEFAULT_PARAMS['poll_normal_cone']):
+               poll_normal_cone=DEFAULT_PARAMS['poll_normal_cone'],
+               detailed_info=False):
     """
         A generic direct-search code for linearly constrained black-box optimization.
 
@@ -441,6 +529,10 @@ def ds_lincons(f, x0, A=None, b=None,
     if verbose:
         assert print_freq > 0, "print_freq should be strictly positive"
 
+    # Detailed info
+    info = {'alpha': [], 'generator': [], 'lambda_1': [], 'lambda_alpha': [],
+            'ncons_active': [], 'ndirs': [], 'ndirs_neg': []}
+
     ###################################
     # Start of the optimization process
     fx = f(x)
@@ -449,7 +541,7 @@ def ds_lincons(f, x0, A=None, b=None,
     if nf >= maxevals:
         if verbose:
             print("Quit (max evals)")
-        return x, fx, nf, EXIT_MAXFUN_REACHED, iteration_counts
+        return x, fx, nf, EXIT_MAXFUN_REACHED, iteration_counts, info
 
     ###############
     # Main loop
@@ -464,13 +556,30 @@ def ds_lincons(f, x0, A=None, b=None,
             print("{0:^5}{1:^15.4e}{2:^15.2e}".format(k, fx, alpha))
 
         # Generate poll directions adapted to linear constraints
-        Dk, Dk_neg = get_poll_directions(A, b, x, alpha, include_negative_directions=poll_normal_cone, verbose=False)
+        Dk, Dk_neg, gen_type, m_active = get_poll_directions(A, b, x, alpha, include_negative_directions=poll_normal_cone, verbose=False)
         # WARNING: poll directions Dk[:,i] are already scaled by alpha, don't multiply by alpha below
         # print("******")
         # print("At x =", x, ", alpha = %g" % alpha)
         # print("Poll directions =")
         # print(Dk)
         # print("******")
+
+        # Compute Lambda-PSS constants
+        if detailed_info:
+            try:
+                lda1 = np.nan  # compute_lambda(x, A, b, Dk, Dk_neg, 1.0)  # <-- not useful
+                lda_alpha = compute_lambda(x, A, b, Dk, Dk_neg, alpha)
+            except:
+                lda1 = np.nan
+                lda_alpha = np.nan
+
+            info['alpha'].append(alpha)  # stepsize
+            info['generator'].append(GENERATORS_TYPE_STR[gen_type])  # type of method used to get generators of tangent cone
+            info['lambda_1'].append(lda1)  # estimate of Lambda for ||v||<=1
+            info['lambda_alpha'].append(lda_alpha)  # estimate of Lambda for ||v||<=alpha
+            info['ncons_active'].append(m_active)  # number of (nearly active) constraints
+            info['ndirs'].append(Dk.shape[1])  # number of poll directions for tangent cone
+            info['ndirs_neg'].append(0 if Dk_neg is None else Dk_neg.shape[1])  # number of poll directions for normal cone
 
         # Start poll step
         ndirs1 = Dk.shape[1]
@@ -503,7 +612,7 @@ def ds_lincons(f, x0, A=None, b=None,
                     iteration_counts['unsuccessful'] += 1
                 if verbose:
                     print("{0:^5}{1:^15.4e}{2:^15.2e} - max evals reached".format(k, fx, alpha))
-                return x, fx, nf, EXIT_MAXFUN_REACHED, iteration_counts
+                return x, fx, nf, EXIT_MAXFUN_REACHED, iteration_counts, info
 
             # If sufficient decrease, update xk and stop poll step
             if sufficient_decrease:
@@ -538,7 +647,7 @@ def ds_lincons(f, x0, A=None, b=None,
         # End loop
         ###########
 
-    return x, fx, nf, EXIT_ALPHA_MIN_REACHED, iteration_counts
+    return x, fx, nf, EXIT_ALPHA_MIN_REACHED, iteration_counts, info
 
 
 def simplex_example():

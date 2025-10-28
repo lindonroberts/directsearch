@@ -65,17 +65,20 @@ def load_problem(probset, idx, all_problem_info):
     else:
         raise RuntimeError("Unknown probset '%s'" % probset)
 
-def solve_all_problems(run_name, budget_in_gradients=200, skip_existing=True):
+def solve_all_problems(run_name, budget_in_gradients=200, skip_existing=True, lincons_only=False):
     # All directsearch.solve() settings for a given run should be put here
     if run_name == 'tangent_only':
         poll_normal_cone = False
         rho_uses_normd = True  # default choice
+        get_detailed_info = False  # no valid Lambda here
     elif run_name == 'tangent_only_simple_rho':
         poll_normal_cone = False
         rho_uses_normd = False  # to match with tangent_and_normal
-    elif run_name == 'tangent_and_normal':
+        get_detailed_info = False  # no valid Lambda here
+    elif run_name.startswith('tangent_and_normal'):
         poll_normal_cone = True
-        rho_uses_normd = False  # required when poll_normal_cone=Tru
+        rho_uses_normd = False  # required when poll_normal_cone=True
+        get_detailed_info = run_name.endswith('detailed')
     else:
         raise RuntimeError("Unknown run_name '%s'" % run_name)
 
@@ -85,6 +88,9 @@ def solve_all_problems(run_name, budget_in_gradients=200, skip_existing=True):
     #####
     all_problem_info = read_json('cutest_problems_reduced.json')
     for probset in all_problem_info:
+        if lincons_only and probset != 'HAS_LINCONS':
+            print("*** SKIPPING PROBLEM SET %s ***" % probset)
+            continue
         print("*** %s ***" % probset)
         for idx in range(len(all_problem_info[probset])):
             prob, x0 = load_problem(probset, idx, all_problem_info)
@@ -113,15 +119,28 @@ def solve_all_problems(run_name, budget_in_gradients=200, skip_existing=True):
             print("- [idx=%g] %s (n=%g)" % (idx, prob.name, prob.n))
             objfun.clear()
             try:
-                start_time, start_cpu_clock = datetime.datetime.now(), time.process_time()
-                soln, iter_counts = directsearch.solve(objfun, objfun.x0, maxevals=maxfun,
-                                                       A=objfun.A, b=objfun.b,
-                                                       return_iteration_counts=True,
-                                                       rho_uses_normd=rho_uses_normd,
-                                                       poll_normal_cone=poll_normal_cone)
-                stop_time, stop_cpu_clock = datetime.datetime.now(), time.process_time()
+                if get_detailed_info:
+                    start_time, start_cpu_clock = datetime.datetime.now(), time.process_time()
+                    soln, iter_counts, info = directsearch.solve(objfun, objfun.x0, maxevals=maxfun,
+                                                                 A=objfun.A, b=objfun.b,
+                                                                 return_iteration_counts=True,
+                                                                 rho_uses_normd=rho_uses_normd,
+                                                                 poll_normal_cone=poll_normal_cone,
+                                                                 detailed_info_lincons=True)
+                    stop_time, stop_cpu_clock = datetime.datetime.now(), time.process_time()
+                else:
+                    start_time, start_cpu_clock = datetime.datetime.now(), time.process_time()
+                    soln, iter_counts = directsearch.solve(objfun, objfun.x0, maxevals=maxfun,
+                                                           A=objfun.A, b=objfun.b,
+                                                           return_iteration_counts=True,
+                                                           rho_uses_normd=rho_uses_normd,
+                                                           poll_normal_cone=poll_normal_cone,
+                                                           detailed_info_lincons=False)
+                    stop_time, stop_cpu_clock = datetime.datetime.now(), time.process_time()
+                    info = None
             except Exception as e:
                 print("*** ERROR, check later -- ", str(e))
+                # exit()
                 continue
 
             this_results['run_start_time'] = start_time.strftime("%Y-%m-%d %H:%M:%S")
@@ -137,6 +156,8 @@ def solve_all_problems(run_name, budget_in_gradients=200, skip_existing=True):
             this_results['results']['niters_unsuccessful'] = iter_counts['unsuccessful']
             this_results['results']['f_history'] = f_hist
             this_results['results']['maxcv_history'] = maxcv_hist
+            if get_detailed_info:
+                this_results['results']['detailed_info'] = info
 
             write_json(this_results, os.path.join(outdir, outfile))
     return
@@ -145,19 +166,24 @@ def solve_all_problems(run_name, budget_in_gradients=200, skip_existing=True):
 def main():
     budget_in_gradients = 200
     run_names = []
-    run_names.append('tangent_only')
-    run_names.append('tangent_only_simple_rho')
-    run_names.append('tangent_and_normal')
+    # run_names.append('tangent_only')  # cannot get detailed info
+    # run_names.append('tangent_only_simple_rho')  # cannot get detailed info
+    # run_names.append('tangent_and_normal')  # used for main results, no detailed info
+    run_names.append('tangent_and_normal_detailed')  # new run with detailed info
 
     skip_existing = True  # new runs only
     # skip_existing = False  # overwrite old runs
+
+    # lincons_only = False  # bounds and lincons
+    lincons_only = True  # lincons only
 
     for run_name in run_names:
         print("")
         print("***********************")
         print("*** NEW RUN: %s ***" % run_name)
         print("***********************")
-        solve_all_problems(run_name, budget_in_gradients=budget_in_gradients, skip_existing=skip_existing)
+        solve_all_problems(run_name, budget_in_gradients=budget_in_gradients, skip_existing=skip_existing,
+                           lincons_only=lincons_only)
     print("Done")
     return
 
