@@ -94,6 +94,7 @@ def solve_all_problems(run_name, budget_in_gradients=200, skip_existing=True, li
         print("*** %s ***" % probset)
         for idx in range(len(all_problem_info[probset])):
             prob, x0 = load_problem(probset, idx, all_problem_info)
+            true_gradf = lambda x: prob.grad(x)
             objfun = ObjfunWrapper(prob, x0)
             maxfun = budget_in_gradients * (prob.n + 1)
             outfile = '%s_%g_%s.json' % (probset, idx, prob.name)
@@ -126,7 +127,8 @@ def solve_all_problems(run_name, budget_in_gradients=200, skip_existing=True, li
                                                                  return_iteration_counts=True,
                                                                  rho_uses_normd=rho_uses_normd,
                                                                  poll_normal_cone=poll_normal_cone,
-                                                                 detailed_info_lincons=True)
+                                                                 detailed_info_lincons=True,
+                                                                 true_gradf=true_gradf)
                     stop_time, stop_cpu_clock = datetime.datetime.now(), time.process_time()
                 else:
                     start_time, start_cpu_clock = datetime.datetime.now(), time.process_time()
@@ -142,6 +144,8 @@ def solve_all_problems(run_name, budget_in_gradients=200, skip_existing=True, li
                 print("*** ERROR, check later -- ", str(e))
                 # exit()
                 continue
+            # print(info['lambda_alpha_gradf'])
+            # exit()  # stop after first problem for testing purposes
 
             this_results['run_start_time'] = start_time.strftime("%Y-%m-%d %H:%M:%S")
             this_results['run_stop_time'] = stop_time.strftime("%Y-%m-%d %H:%M:%S")
@@ -171,8 +175,8 @@ def main():
     # run_names.append('tangent_and_normal')  # used for main results, no detailed info
     run_names.append('tangent_and_normal_detailed')  # new run with detailed info
 
-    skip_existing = True  # new runs only
-    # skip_existing = False  # overwrite old runs
+    # skip_existing = True  # new runs only
+    skip_existing = False  # overwrite old runs
 
     # lincons_only = False  # bounds and lincons
     lincons_only = True  # lincons only

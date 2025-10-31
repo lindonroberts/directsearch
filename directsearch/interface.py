@@ -100,7 +100,8 @@ def solve(f, x0, A=None, b=None, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEFAULT_P
           rho_uses_normd=DEFAULT_PARAMS['rho_uses_normd'],
           return_iteration_counts=DEFAULT_PARAMS['return_iteration_counts'],
           poll_normal_cone=DEFAULT_PARAMS['poll_normal_cone'],
-          detailed_info_lincons=False):
+          detailed_info_lincons=False,
+          true_gradf=None):
     """
         Apply a direct-search method to an optimization problem.
 
@@ -181,7 +182,8 @@ def solve(f, x0, A=None, b=None, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEFAULT_P
                                                        verbose=verbose, print_freq=print_freq,
                                                        rho_uses_normd=rho_uses_normd,
                                                        poll_normal_cone=poll_normal_cone,
-                                                       detailed_info=detailed_info_lincons)
+                                                       detailed_info=detailed_info_lincons,
+                                                       true_gradf=true_gradf)
     if return_iteration_counts:
         if detailed_info_lincons:
             return OptimResults(xmin, fmin, nf, flag), iter_counts, info

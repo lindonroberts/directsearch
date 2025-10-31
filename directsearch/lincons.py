@@ -17,10 +17,12 @@ from .ds import DEFAULT_PARAMS, EXIT_MAXFUN_REACHED, EXIT_ALPHA_MIN_REACHED
 # for detailed analysis purposes
 GENERATORS_UNCONSTRAINED = 0
 GENERATORS_LINEARLY_INDEPENDENT = 1
-GENERATORS_DOUBLE_DESCENT = 2
+GENERATORS_DOUBLE_DESCENT = 2  # dd + recursion into null space (which only used uncons/lin ind/dd)
 GENERATORS_NORMAL_ONLY = 3  # tangent cone is {0} so using normal directions
+GENERATORS_DD_AND_NORMAL = 4  # double descent + recursion into null space (and that recursion used normals at some point)
 GENERATORS_TYPE_STR = {GENERATORS_UNCONSTRAINED: 'unconstrained', GENERATORS_LINEARLY_INDEPENDENT: 'pseudoinverse',
-                       GENERATORS_DOUBLE_DESCENT: 'double_descent', GENERATORS_NORMAL_ONLY: 'normal_cone'}
+                       GENERATORS_DOUBLE_DESCENT: 'double_descent', GENERATORS_NORMAL_ONLY: 'normal_cone',
+                       GENERATORS_DD_AND_NORMAL: 'double_descent_recursive_normal'}
 
 def nearby_constraints(A, b, x, alpha):
     """
@@ -265,27 +267,46 @@ def get_poll_directions(A, b, x, alpha, include_negative_directions=True, verbos
             # directions we can add, namely +/-null(directions in T)
             if np.linalg.matrix_rank(T) < n:
                 null_T = null_space(T.T)  # each column is a null space direction
+                dim_null_T = null_T.shape[1]
                 if verbose:
                     print("null(T) = ", null_T)
-                Tnew = np.hstack((null_T, -null_T))  # new directions to add
-                for i in range(Tnew.shape[1]):
-                    ti = Tnew[:, i]
-                    if verbose:
-                        print("Adding null space direction i=%g" % i, "ti =", ti)
-                    if np.any(T.T @ ti <= -(1.0 - ZERO_THRESH) * alpha ** 2):
-                        # Found another column tj such that dot(tj, ti) == -alpha^2, i.e. tj = -ti (since both have length alpha)
-                        # No need to add -ti to poll directions, since it's already there
+                if dim_null_T == 1:
+                    # 1D null space
+                    Tnew = np.hstack((null_T, -null_T))  # new directions to add
+                    for i in range(Tnew.shape[1]):
+                        ti = Tnew[:, i]
                         if verbose:
-                            print("Found -ti already in T, skipping")
-                        continue
-                    A_ti = A @ ti
-                    idx = np.nonzero(A_ti < -ZERO_THRESH)[0]
-                    alpha_i = np.min(s[idx] / (-A_ti[idx])) if len(idx) > 0 else 1.0
-                    alpha_i = max(min(alpha_i, 1.0), 0.0)  # always ensure 0 <= alpha_i <= 1
+                            print("Adding null space direction i=%g" % i, "ti =", ti)
+                        if np.any(T.T @ ti <= -(1.0 - ZERO_THRESH) * alpha ** 2):
+                            # Found another column tj such that dot(tj, ti) == -alpha^2, i.e. tj = -ti (since both have length alpha)
+                            # No need to add -ti to poll directions, since it's already there
+                            if verbose:
+                                print("Found -ti already in T, skipping")
+                            continue
+                        A_ti = A @ ti
+                        idx = np.nonzero(A_ti > ZERO_THRESH)[0]
+                        alpha_i = np.min(s[idx] / (A_ti[idx])) if len(idx) > 0 else 1.0
+                        alpha_i = max(min(alpha_i, 1.0), 0.0)  # always ensure 0 <= alpha_i <= 1
+                        if verbose:
+                            print("alpha_i = %g" % alpha_i)
+                        if alpha_i > ZERO_THRESH:
+                            Tneg = np.hstack((Tneg, alpha_i * ti.reshape((n, 1))))
+                else:
+                    # dim(null(T)) > 1 --> call this method recursively
+                    # Constraints are A @ null(T) @ v <= b - A@x, based at v=0
                     if verbose:
-                        print("alpha_i = %g" % alpha_i)
-                    if alpha_i > ZERO_THRESH:
-                        Tneg = np.hstack((Tneg, -alpha_i * ti.reshape((n, 1))))
+                        print("___ starting recursive call ___")
+                    NT, NTneg, NT_gen_type, _ = get_poll_directions(A @ null_T, b - A@x, np.zeros((dim_null_T,)), alpha,
+                                                                    include_negative_directions=True, verbose=verbose)
+                    if verbose:
+                        print("___ finished recursive call ___")
+                    # If the normal cone generators were used at any point, flag this up the recursion
+                    if NT_gen_type == GENERATORS_NORMAL_ONLY or NT_gen_type == GENERATORS_DD_AND_NORMAL:
+                        gen_type = GENERATORS_DD_AND_NORMAL
+                    # Append all these directions to Tneg
+                    Tneg = np.hstack((Tneg, null_T @ NT))
+                    if NTneg is not None:
+                        Tneg = np.hstack((Tneg, null_T @ NTneg))
             return T, Tneg, gen_type, len(J)
         else:
             # Exclude negative directions, for comparison purposes
@@ -384,6 +405,14 @@ def compute_lambda(x, A, b, D, Dneg, alpha):
     # if soln_v.success or soln_v.status == 1:
         # status=1 --> "performed more than maxfun evaluations" (not actually a problem)
         print("lambda: alpha = %g, solve = %g" % (alpha, -soln_v.fun))
+        if -soln_v.fun > 1e5:
+            print("--------------")
+            print("x =", x)
+            print("alpha =", alpha)
+            print("D =", D)
+            print("Dneg =", Dneg)
+            print("vbad =", soln_v.x)
+            print("--------------")
         return -soln_v.fun  # convert min_{v} to max_{v} by flipping sign
     else:
         print("lambda solve failed, status = %g" % soln_v.status)
@@ -391,6 +420,94 @@ def compute_lambda(x, A, b, D, Dneg, alpha):
         print("  - soln.x =", soln_v.x)
         print("  - soln.fun =", soln_v.fun)
         return np.nan
+
+def compute_lambda_gradf(x, A, b, D, Dneg, alpha, true_gradf):
+    """
+    For a given lambda-PSS, compute/estimate the value of lambda
+
+    Have:
+    - current (feasible) iterate x
+    - full list of linear inequality constraints A @ x <= b
+    - set of poll directions = columns of matrix D and Dneg (which may be None)
+    - search radius alpha
+    :return:
+    """
+
+    # Compute stationarity measure:
+    #       v = argmin_{v} dot(v, gradf) subject to Av <= b-Ax, ||v|| <= alpha
+    # Then return the lambda associated with this v specifically, by solving
+    #       min_{c} dot(c, e) subject to Dc=v, c >= 0
+    # (c has length = number poll directions = D.shape[1], v has same length as x)
+
+    # Find v using DIRECT, which helps ensure feasibility
+    n = len(x)
+    s = np.maximum(b - A @ x, 0.0)  # need A*v <= s
+    gx = true_gradf(x)
+    def obj_v(v):
+        # Given a v, determine the objective value
+        if np.all(A @ v <= s) and np.linalg.norm(v) <= alpha:
+            # Feasible v, solve for c
+            return np.dot(v, gx)
+        else:
+            # Infeasible v, return value that won't be chosen (i.e. large, since solving min_{v} problem)
+            return np.finfo(float).max  # large positive value, 1.8e308
+
+    # Solve min_{v} obj_v(v) subject to -alpha <= v <= alpha (tightest bounds that cover ||v||<=alpha constraint)
+    soln_v = direct(obj_v, bounds=[(-alpha, alpha) for _ in range(n)])  # setting maxfun avoids errors
+    vmin = soln_v.x
+
+    # v0 = np.zeros(x.shape, dtype=float)
+    # obj_v = lambda v: np.dot(v, gx)
+    # jac_v = lambda v: gx
+    # v_lincons = LinearConstraint(A, lb=-np.inf, ub=np.maximum(b - A @ x, 0.0))  # Av <= b-Ax
+    # v_nlcons = NonlinearConstraint(lambda v: np.dot(v, v), lb=-np.inf, ub=alpha**2, jac=lambda v : 2*v)  # ||v||^2 <= alpha^2
+    # soln_v = minimize(obj_v, v0, method='SLSQP', jac=jac_v, constraints=[v_lincons, v_nlcons])
+    # vmin = soln_v.x
+    # print("g = ", gx)
+    # print("v = ", soln_v.x)
+    # print("success = ", soln_v.success, ", message = ", soln_v.message)
+    # print("(expect >= 0)  resid =", b - A@(x+vmin))
+    if soln_v.success:
+        # Project vmin to make it strictly feasible for linear constraints
+        # LP solver will fail as infeasible if vmin slightly infeasible
+        # (should be easy, as it should be very close to feasible)
+        # v_lincons2 = LinearConstraint(A, lb=-np.inf, ub=np.maximum(b - A @ x, 0.0) - 1e-10)  # Av <= b-Ax - eps
+        # soln_v2 = minimize(lambda x: 0.5 * np.dot(x - vmin, x - vmin), vmin, jac=lambda x: (x - vmin), constraints=v_lincons2)
+        # vmin = soln_v2.x
+        # print("v2 = ", vmin)
+        # print("(expect >= 0) new resid =", b - A @ (x + vmin))
+
+        n = len(x)
+        nc1 = D.shape[1]
+        nc2 = 0 if Dneg is None else Dneg.shape[1]
+        nc = nc1 + nc2
+
+        c_cost = np.ones((nc,), dtype=float)
+        c_bounds = (0.0, None)  # c >= 0
+        c_D = np.zeros((n, nc), dtype=float)
+        c_D[:, :nc1] = D
+        c_D[:, nc1:] = Dneg
+
+        # Convert c_D @ c = v --> v-eps <= c_D @ c <= v+eps
+        # A_ineq = np.block([[c_D], [-c_D]])
+        # print("A_ineq = ", A_ineq)
+        # b_ineq = np.zeros((2*n,), dtype=float)
+        # b_ineq[:n] = vmin + 2e-6  # c_D @ c <= vmin + eps
+        # b_ineq[n:] = -vmin + 2e-6  # c_D @ c >= vmin - eps --> -c_D @ c <= -vmin + eps
+        # print("b_ineq = ", b_ineq)
+
+        soln = linprog(c_cost, A_eq=c_D, b_eq=vmin, bounds=c_bounds)
+        # soln = linprog(c_cost, A_ub=A_ineq, b_ub=b_ineq, bounds=c_bounds)
+        # print("c_D =", c_D)
+        # print("LP message =", soln.message, ", status = ", soln.status)
+        if soln.success:
+            return soln.fun
+        elif soln.status == 2:
+            # LP is infeasible --> not a PSS --> Lambda should be infinite
+            # return float(np.finfo(float).max)  # large positive value, 1.8e308
+            return np.inf
+        else:
+            return np.nan
 
 def ds_lincons(f, x0, A=None, b=None,
                rho=DEFAULT_PARAMS['rho'],
@@ -404,7 +521,8 @@ def ds_lincons(f, x0, A=None, b=None,
                print_freq=DEFAULT_PARAMS['print_freq'],
                rho_uses_normd=DEFAULT_PARAMS['rho_uses_normd'],
                poll_normal_cone=DEFAULT_PARAMS['poll_normal_cone'],
-               detailed_info=False):
+               detailed_info=False,
+               true_gradf=None):
     """
         A generic direct-search code for linearly constrained black-box optimization.
 
@@ -530,7 +648,7 @@ def ds_lincons(f, x0, A=None, b=None,
         assert print_freq > 0, "print_freq should be strictly positive"
 
     # Detailed info
-    info = {'alpha': [], 'generator': [], 'lambda_1': [], 'lambda_alpha': [],
+    info = {'alpha': [], 'generator': [], 'lambda_1': [], 'lambda_alpha': [], 'lambda_alpha_gradf': [],
             'ncons_active': [], 'ndirs': [], 'ndirs_neg': []}
 
     ###################################
@@ -556,7 +674,8 @@ def ds_lincons(f, x0, A=None, b=None,
             print("{0:^5}{1:^15.4e}{2:^15.2e}".format(k, fx, alpha))
 
         # Generate poll directions adapted to linear constraints
-        Dk, Dk_neg, gen_type, m_active = get_poll_directions(A, b, x, alpha, include_negative_directions=poll_normal_cone, verbose=False)
+        Dk, Dk_neg, gen_type, m_active = get_poll_directions(A, b, x, alpha, include_negative_directions=poll_normal_cone, verbose=verbose)
+        # print("gen type =", gen_type)
         # WARNING: poll directions Dk[:,i] are already scaled by alpha, don't multiply by alpha below
         # print("******")
         # print("At x =", x, ", alpha = %g" % alpha)
@@ -573,10 +692,21 @@ def ds_lincons(f, x0, A=None, b=None,
                 lda1 = np.nan
                 lda_alpha = np.nan
 
+            if true_gradf is not None:
+                try:
+                    lda_gradf = compute_lambda_gradf(x, A, b, Dk, Dk_neg, alpha, true_gradf)
+                    print("lambda_gradf = %g" % lda_gradf)
+                except Exception as e:
+                    print("lambda_gradf failed")
+                    lda_gradf = np.nan
+            else:
+                lda_gradf = np.nan
+
             info['alpha'].append(alpha)  # stepsize
             info['generator'].append(GENERATORS_TYPE_STR[gen_type])  # type of method used to get generators of tangent cone
             info['lambda_1'].append(lda1)  # estimate of Lambda for ||v||<=1
             info['lambda_alpha'].append(lda_alpha)  # estimate of Lambda for ||v||<=alpha
+            info['lambda_alpha_gradf'].append(lda_gradf)  # estimate of Lambda for v = negative gradient/criticality direction
             info['ncons_active'].append(m_active)  # number of (nearly active) constraints
             info['ndirs'].append(Dk.shape[1])  # number of poll directions for tangent cone
             info['ndirs_neg'].append(0 if Dk_neg is None else Dk_neg.shape[1])  # number of poll directions for normal cone

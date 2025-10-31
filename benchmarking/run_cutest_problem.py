@@ -12,17 +12,22 @@ from run_all_cutest import load_problem, ObjfunWrapper
 def solve_cutest_problem(prob, x0, poll_normal_cone=True):
     objfun = ObjfunWrapper(prob, x0, print_all_evals=True)
     objfun.clear()
-    soln, iter_counts = directsearch.solve(objfun, objfun.x0, A=objfun.A, b=objfun.b,
+    print("x0 =", objfun.x0)
+    print("A =", objfun.A)
+    print("b =", objfun.b)
+    soln, iter_counts, info = directsearch.solve(objfun, objfun.x0, A=objfun.A, b=objfun.b,
                                            maxevals=200 * (objfun.prob.n + 1),
                                            return_iteration_counts=True,
-                                           poll_normal_cone=poll_normal_cone, print_freq=1, verbose=False)
+                                                 rho_uses_normd=False,
+                                           poll_normal_cone=poll_normal_cone, verbose=False,
+                                                 detailed_info_lincons = True, true_gradf = lambda x: prob.grad(x))
     return soln, iter_counts
 
 
 def main():
     # BOUNDS_ONLY has 93 problems, HAS_LINCONS has 45 problems (max idx = 92 or 44)
     # probset, idx = 'BOUNDS_ONLY', 11  # 0 <= idx < 93
-    probset, idx = 'HAS_LINCONS', 4  # 0 <= idx < 45
+    probset, idx = 'HAS_LINCONS', 19  # 0 <= idx < 45
 
     all_problem_info = read_json('cutest_problems_reduced.json')
     prob, x0 = load_problem(probset, idx, all_problem_info)
