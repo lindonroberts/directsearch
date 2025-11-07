@@ -13,6 +13,10 @@ from get_all_cutest_problems import write_json, read_json
 
 MAXCV_THRESH = 1e-12  # exclude any evaluations with maxcv > MAXCV_THRESH (expect none)
 
+# Some bound-constrained problems are duplicated (a legacy of how the problem sets
+# were constructed). Skip these when plotting results
+# 16 duplicates --> 77 bound constrained problems remain (122 total problems)
+SKIP_BOUND_IDX = [64, 68, 69, 70, 71, 73, 74, 75, 76, 77, 82, 83, 84, 87, 91, 92]
 
 def load_all_results_single_run(run_name, probsets):
     infolder = os.path.join('raw_results', run_name)
@@ -22,6 +26,9 @@ def load_all_results_single_run(run_name, probsets):
         print("Loading results for run %s and probset %s" % (run_name, probset))
         for idx in range(len(all_problem_info[probset])):
             entry = all_problem_info[probset][idx]
+            if probset == 'BOUNDS_ONLY' and idx in SKIP_BOUND_IDX:
+                print("- skipping duplicate bound problem %g %s" % (idx, entry['name']))
+                continue
             infile = '%s_%g_%s.json' % (probset, idx, entry['name'])
             if os.path.isfile(os.path.join(infolder, infile)):
                 this_problem_results = read_json(os.path.join(infolder, infile))
@@ -386,8 +393,8 @@ def iter_count_check(all_results):
 
 def main():
     # task = 'process_raw_results'  # create solve_times.csv
-    # task = 'make_profiles'
-    task = 'iter_count_check'
+    task = 'make_profiles'
+    # task = 'iter_count_check'
 
     solve_times_file = os.path.join('raw_results', 'solve_times.csv')
     tau_levels = [1, 2, 3, 4, 5, 6, 7]
@@ -399,9 +406,10 @@ def main():
         probsets.append('HAS_LINCONS')
 
         run_names = []
-        run_names.append('tangent_only')
-        run_names.append('tangent_only_simple_rho')
-        run_names.append('tangent_and_normal')
+        # run_names.append('tangent_only')  # rho(alpha) = min(eps, eps * alpha^2 * ||dk||^2)
+        run_names.append('tangent_only_simple_rho')  #rho = min(eps, eps * alpha^2)
+        # run_names.append('tangent_and_normal')  # rho = min(eps, eps * alpha^2)
+        run_names.append('tangent_and_normal_detailed')  # rho = min(eps, eps * alpha^2)  -- updated recursive step
 
         all_results = load_all_results(run_names, probsets, drop_missing_results=True)
 
@@ -413,14 +421,16 @@ def main():
         print(solve_times.head())
         print(solve_times.tail())
 
-        TANGENT_ONLY_PLOT_INFO = {'run_name': 'tangent_only', 'col': 'k', 'ls': '-', 'lbl': 'T (full dec)', 'mkr': '', 'ms': 0}
-        TANGENT_ONLY_SIMPLE_PLOT_INFO = {'run_name': 'tangent_only_simple_rho', 'col': 'b', 'ls': '-', 'lbl': 'T (simple dec)', 'mkr': '', 'ms': 0}
-        TANGENT_AND_NORMAL_PLOT_INFO = {'run_name': 'tangent_and_normal', 'col': 'r', 'ls': '-', 'lbl': 'T+N (simple dec)', 'mkr': '', 'ms': 0}
+        # TANGENT_ONLY_PLOT_INFO = {'run_name': 'tangent_only', 'col': 'k', 'ls': '-', 'lbl': 'T (full dec)', 'mkr': '', 'ms': 0}
+        TANGENT_ONLY_SIMPLE_PLOT_INFO = {'run_name': 'tangent_only_simple_rho', 'col': 'b', 'ls': '-', 'lbl': 'Tangent generators', 'mkr': '', 'ms': 0}
+        # TANGENT_AND_NORMAL_PLOT_INFO = {'run_name': 'tangent_and_normal', 'col': 'r', 'ls': '-', 'lbl': 'T+N (simple dec)', 'mkr': '', 'ms': 0}
+        TANGENT_AND_NORMAL_DETAILED_PLOT_INFO = {'run_name': 'tangent_and_normal_detailed', 'col': 'r', 'ls': '--', 'lbl': r'Full $\Lambda$-PSS', 'mkr': '', 'ms': 0}
 
         FULL_PLOT_INFO = []
-        FULL_PLOT_INFO.append(TANGENT_ONLY_PLOT_INFO)
+        # FULL_PLOT_INFO.append(TANGENT_ONLY_PLOT_INFO)
         FULL_PLOT_INFO.append(TANGENT_ONLY_SIMPLE_PLOT_INFO)
-        FULL_PLOT_INFO.append(TANGENT_AND_NORMAL_PLOT_INFO)
+        # FULL_PLOT_INFO.append(TANGENT_AND_NORMAL_PLOT_INFO)
+        FULL_PLOT_INFO.append(TANGENT_AND_NORMAL_DETAILED_PLOT_INFO)
 
         filestem = os.path.join('profiles', 'main_comparison')
         probsets = ['BOUNDS_ONLY', 'HAS_LINCONS']

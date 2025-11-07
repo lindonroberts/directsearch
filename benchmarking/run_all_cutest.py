@@ -175,11 +175,11 @@ def main():
     # run_names.append('tangent_and_normal')  # used for main results, no detailed info
     run_names.append('tangent_and_normal_detailed')  # new run with detailed info
 
-    # skip_existing = True  # new runs only
-    skip_existing = False  # overwrite old runs
+    skip_existing = True  # new runs only
+    # skip_existing = False  # overwrite old runs
 
-    # lincons_only = False  # bounds and lincons
-    lincons_only = True  # lincons only
+    lincons_only = False  # bounds and lincons
+    # lincons_only = True  # lincons only
 
     for run_name in run_names:
         print("")

@@ -19,9 +19,11 @@ GENERATORS_UNCONSTRAINED = 0
 GENERATORS_LINEARLY_INDEPENDENT = 1
 GENERATORS_DOUBLE_DESCENT = 2  # dd + recursion into null space (which only used uncons/lin ind/dd)
 GENERATORS_NORMAL_ONLY = 3  # tangent cone is {0} so using normal directions
-GENERATORS_DD_AND_NORMAL = 4  # double descent + recursion into null space (and that recursion used normals at some point)
+GENERATORS_DD_RECURSIVE = 4
+GENERATORS_DD_AND_NORMAL = 5  # double descent + recursion into null space (and that recursion used normals at some point)
 GENERATORS_TYPE_STR = {GENERATORS_UNCONSTRAINED: 'unconstrained', GENERATORS_LINEARLY_INDEPENDENT: 'pseudoinverse',
                        GENERATORS_DOUBLE_DESCENT: 'double_descent', GENERATORS_NORMAL_ONLY: 'normal_cone',
+                       GENERATORS_DD_RECURSIVE: 'double_descent_recursive',
                        GENERATORS_DD_AND_NORMAL: 'double_descent_recursive_normal'}
 
 def nearby_constraints(A, b, x, alpha):
@@ -303,6 +305,8 @@ def get_poll_directions(A, b, x, alpha, include_negative_directions=True, verbos
                     # If the normal cone generators were used at any point, flag this up the recursion
                     if NT_gen_type == GENERATORS_NORMAL_ONLY or NT_gen_type == GENERATORS_DD_AND_NORMAL:
                         gen_type = GENERATORS_DD_AND_NORMAL
+                    else:
+                        gen_type = GENERATORS_DD_RECURSIVE
                     # Append all these directions to Tneg
                     Tneg = np.hstack((Tneg, null_T @ NT))
                     if NTneg is not None:

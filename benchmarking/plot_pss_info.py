@@ -40,6 +40,16 @@ def plot_info(df, whole_region=True):
         df = df[(df['lambda'] > 0.0)].dropna()  # remove lambda=0 and rows with NaN values
     else:
         df = df[np.isfinite(df['lambda_crit'])].dropna()  # remove lambda=0 and rows with NaN values
+
+    # Rename/aggregate generator types
+    gen_map = {'unconstrained': 'unconstrained',
+               'pseudoinverse': 'linearly_independent',
+               'double_descent': 'double_description',
+               'double_descent_recursive': 'recursive',
+               'double_descent_recursive_normal': 'recursive',
+               'normal_cone': 'normal_generators'}
+    df['generator'] = df['generator'].map(gen_map)
+
     generators = sorted(list(df['generator'].unique()))
     gen_count = {}
     for g in generators:
@@ -51,12 +61,22 @@ def plot_info(df, whole_region=True):
     plt.rc('text', usetex=True)
     plt.rc('font', family='serif')
 
-    generators = ['unconstrained', 'pseudoinverse', 'double_descent', 'double_descent_recursive_normal', 'normal_cone']
+
+
+    generators = ['unconstrained', 'linearly_independent', 'double_description', 'normal_generators', 'recursive']
     gen_lbls = ['Unconstrained\n$N=%g$' % gen_count['unconstrained'],
-                'Full rank\n$N=%g$' % gen_count['pseudoinverse'],
-                'Double descent\n$N=%g$' % gen_count['double_descent'],
-                'Double descent (inc empty tangent)\n$N=%g$' % gen_count['double_descent_recursive_normal'],
-                'Empty tangent\n$N=%g$' % gen_count['normal_cone']]
+                'Full rank\n$N=%g$' % gen_count['linearly_independent'],
+                'Double desc.\n$N=%g$' % gen_count['double_description'],
+                'Normal gens.\n$N=%g$' % gen_count['normal_generators'],
+                'Recursive\n$N=%g$' % gen_count['recursive']]
+
+    # generators = ['unconstrained', 'pseudoinverse', 'double_descent', 'double_descent_recursive', 'double_descent_recursive_normal', 'normal_cone']
+    # gen_lbls = ['Unconstrained\n$N=%g$' % gen_count['unconstrained'],
+    #             'Full rank\n$N=%g$' % gen_count['pseudoinverse'],
+    #             'Double descent\n$N=%g$' % gen_count['double_descent'],
+    #             'DD+R\n$N=%g$' % gen_count['double_descent_recursive'],
+    #             'DD+R + empty tangent\n$N=%g$' % gen_count['double_descent_recursive_normal'],
+    #             'Empty tangent\n$N=%g$' % gen_count['normal_cone']]
 
     # plt.violinplot([df[df['generator'] == g]['lambda_norm'].values for g in generators], showmedians=True)
     plt.boxplot([df[df['generator'] == g][key].values for g in generators])
@@ -82,7 +102,7 @@ def main():
     # print(df.tail())
     # df.to_csv(os.path.join('raw_results', 'lambda_pss_summary.csv'), index=False)
     plot_info(df, whole_region=True)  # lambda_info.pdf
-    plot_info(df, whole_region=False)  # lambda_info_crit.pdf
+    # plot_info(df, whole_region=False)  # lambda_info_crit.pdf
     print("Done")
     return
 

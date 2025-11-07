@@ -315,7 +315,7 @@ def get_feasible_x0_demo():
     return
 
 def main():
-    if True:
+    if False:
         get_feasible_x0_demo()
         return
 
@@ -343,7 +343,8 @@ def main():
             b = np.concatenate((b_bounds, b_ineq))
             x0_feas = feasibility(A, b, Aeq, beq, np.array(p['x0']))
 
-            print("{0:^10}{1:^5}{2:^5}{3:^5}{4:^5}{5:^15.4e}".format(probname, prob.n, nbounds, nlineq, nlinineq, x0_feas))
+            # print("{0:^10}{1:^5}{2:^5}{3:^5}{4:^5}{5:^15.4e}".format(probname, prob.n, nbounds, nlineq, nlinineq, x0_feas))
+            print(sifparams)
     print("Done")
     return
 
