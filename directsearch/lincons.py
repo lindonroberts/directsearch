@@ -313,8 +313,28 @@ def get_poll_directions(A, b, x, alpha, include_negative_directions=True, verbos
                         Tneg = np.hstack((Tneg, null_T @ NTneg))
             return T, Tneg, gen_type, len(J)
         else:
-            # Exclude negative directions, for comparison purposes
-            return T, None, gen_type, len(J)
+            if False:
+                # Temporary test -- when not using negative tangent generators ("tangent only"),
+                # instead add scaled normals, like existing approaches
+                normal_dirns = N.T  # columns are outward normal directions
+                normal_dirns = normal_dirns * alpha / np.linalg.norm(normal_dirns, axis=0)  # scale to length alpha
+                poll_dirns = np.zeros((n, 0), dtype=float)
+                for i in range(normal_dirns.shape[1]):
+                    ni = normal_dirns[:, i]
+                    if verbose:
+                        print("Normal i=%g" % i, "ni =", ni)
+                    A_ni = A @ ni
+                    idx = np.nonzero(A_ni > ZERO_THRESH)[0]
+                    alpha_i = np.min(s[idx] / (A_ni[idx])) if len(idx) > 0 else 1.0
+                    alpha_i = max(min(alpha_i, 1.0), 0.0)  # always ensure 0 <= alpha_i <= 1
+                    if verbose:
+                        print("alpha_i = %g" % alpha_i)
+                    if alpha_i > ZERO_THRESH:
+                        poll_dirns = np.hstack((poll_dirns, alpha_i * ni.reshape((n, 1))))
+                return T, poll_dirns, gen_type, len(J)
+            else:
+                # Exclude negative directions, for comparison purposes
+                return T, None, gen_type, len(J)
     else:
         # Tangent cone is {0}, i.e. normal cone spans R^n
         # i.e. use these as the poll directions (after suitable scaling)

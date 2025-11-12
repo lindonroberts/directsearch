@@ -75,6 +75,10 @@ def solve_all_problems(run_name, budget_in_gradients=200, skip_existing=True, li
         poll_normal_cone = False
         rho_uses_normd = False  # to match with tangent_and_normal
         get_detailed_info = False  # no valid Lambda here
+    elif run_name == 'tangent_only_simple_rho_with_normal_old':
+        poll_normal_cone = False
+        rho_uses_normd = False  # to match with tangent_and_normal
+        get_detailed_info = False  # no valid Lambda here
     elif run_name.startswith('tangent_and_normal'):
         poll_normal_cone = True
         rho_uses_normd = False  # required when poll_normal_cone=True
@@ -173,7 +177,8 @@ def main():
     # run_names.append('tangent_only')  # cannot get detailed info
     # run_names.append('tangent_only_simple_rho')  # cannot get detailed info
     # run_names.append('tangent_and_normal')  # used for main results, no detailed info
-    run_names.append('tangent_and_normal_detailed')  # new run with detailed info
+    # run_names.append('tangent_and_normal_detailed')  # new run with detailed info
+    run_names.append('tangent_only_simple_rho_with_normal_old')  # old run but with **scaled normals**
 
     skip_existing = True  # new runs only
     # skip_existing = False  # overwrite old runs

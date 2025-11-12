@@ -396,7 +396,8 @@ def main():
     task = 'make_profiles'
     # task = 'iter_count_check'
 
-    solve_times_file = os.path.join('raw_results', 'solve_times.csv')
+    # solve_times_file = os.path.join('raw_results', 'solve_times.csv')
+    solve_times_file = os.path.join('raw_results', 'solve_times2.csv')
     tau_levels = [1, 2, 3, 4, 5, 6, 7]
     budget_in_gradients = 200
 
@@ -408,6 +409,7 @@ def main():
         run_names = []
         # run_names.append('tangent_only')  # rho(alpha) = min(eps, eps * alpha^2 * ||dk||^2)
         run_names.append('tangent_only_simple_rho')  #rho = min(eps, eps * alpha^2)
+        run_names.append('tangent_only_simple_rho_with_normal_old')  # rho = min(eps, eps * alpha^2)
         # run_names.append('tangent_and_normal')  # rho = min(eps, eps * alpha^2)
         run_names.append('tangent_and_normal_detailed')  # rho = min(eps, eps * alpha^2)  -- updated recursive step
 
@@ -422,27 +424,29 @@ def main():
         print(solve_times.tail())
 
         # TANGENT_ONLY_PLOT_INFO = {'run_name': 'tangent_only', 'col': 'k', 'ls': '-', 'lbl': 'T (full dec)', 'mkr': '', 'ms': 0}
-        TANGENT_ONLY_SIMPLE_PLOT_INFO = {'run_name': 'tangent_only_simple_rho', 'col': 'b', 'ls': '-', 'lbl': 'Tangent generators', 'mkr': '', 'ms': 0}
+        TANGENT_ONLY_SIMPLE_PLOT_INFO = {'run_name': 'tangent_only_simple_rho', 'col': 'k', 'ls': '-', 'lbl': 'Tangent generators', 'mkr': '', 'ms': 0}
+        TANGENT_NORMALS_SIMPLE_PLOT_INFO = {'run_name': 'tangent_only_simple_rho_with_normal_old', 'col': 'b', 'ls': '-', 'lbl': 'Tangent and normal generators', 'mkr': '', 'ms': 0}
         # TANGENT_AND_NORMAL_PLOT_INFO = {'run_name': 'tangent_and_normal', 'col': 'r', 'ls': '-', 'lbl': 'T+N (simple dec)', 'mkr': '', 'ms': 0}
         TANGENT_AND_NORMAL_DETAILED_PLOT_INFO = {'run_name': 'tangent_and_normal_detailed', 'col': 'r', 'ls': '--', 'lbl': r'Full $\Lambda$-PSS', 'mkr': '', 'ms': 0}
 
         FULL_PLOT_INFO = []
         # FULL_PLOT_INFO.append(TANGENT_ONLY_PLOT_INFO)
-        FULL_PLOT_INFO.append(TANGENT_ONLY_SIMPLE_PLOT_INFO)
+        FULL_PLOT_INFO.append(TANGENT_ONLY_SIMPLE_PLOT_INFO)  # tangent only
+        FULL_PLOT_INFO.append(TANGENT_NORMALS_SIMPLE_PLOT_INFO)  # tangent plus normals
         # FULL_PLOT_INFO.append(TANGENT_AND_NORMAL_PLOT_INFO)
-        FULL_PLOT_INFO.append(TANGENT_AND_NORMAL_DETAILED_PLOT_INFO)
+        FULL_PLOT_INFO.append(TANGENT_AND_NORMAL_DETAILED_PLOT_INFO)  # tangent plus negative tangent
 
-        filestem = os.path.join('profiles', 'main_comparison')
+        filestem = os.path.join('profiles', 'main_comparison2')
         probsets = ['BOUNDS_ONLY', 'HAS_LINCONS']
         make_profiles(FULL_PLOT_INFO, solve_times[solve_times["probset"].isin(probsets)], tau_levels, filestem, budget_in_gradients,
                       plot_data=True, plot_perf=True, fmt='pdf')
 
-        filestem = os.path.join('profiles', 'bounds_only')
+        filestem = os.path.join('profiles', 'bounds_only2')
         probsets = ['BOUNDS_ONLY']
         make_profiles(FULL_PLOT_INFO, solve_times[solve_times["probset"].isin(probsets)], tau_levels, filestem,
                       budget_in_gradients, plot_data=True, plot_perf=True, fmt='pdf')
 
-        filestem = os.path.join('profiles', 'has_lincons')
+        filestem = os.path.join('profiles', 'has_lincons2')
         probsets = ['HAS_LINCONS']
         make_profiles(FULL_PLOT_INFO, solve_times[solve_times["probset"].isin(probsets)], tau_levels, filestem,
                       budget_in_gradients, plot_data=True, plot_perf=True, fmt='pdf')
