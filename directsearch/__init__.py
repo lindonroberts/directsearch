@@ -28,7 +28,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 # Version identifier
-__version__ = '1.0'
+__version__ = '1.0.1'
 __all__ = ['__version__']
 
 # Import the main routines
