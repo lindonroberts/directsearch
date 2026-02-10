@@ -659,7 +659,7 @@ def ds_lincons(f, x0, A=None, b=None,
     # Ensure x0 is feasible
     init_feas_tol = 1e-14
     if not np.all(A @ x <= b + init_feas_tol):
-        warnings.warn("Perturbing initial point to make it feasible")
+        warnings.warn(UserWarning("Perturbing initial point to make it feasible"))
         soln = minimize(lambda y: 0.5 * np.dot(y - x, y - x), x, jac=lambda y: (y - x), constraints=LinearConstraint(A, ub=b))
         x = soln.x.copy()
         assert np.all(A @ x <= b + init_feas_tol), "Could not find feasible initial point, A @ x0 <= b"
