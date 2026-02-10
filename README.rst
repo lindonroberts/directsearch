@@ -29,11 +29,11 @@ Citation
 --------
 If you use this package, please cite:
 
-L Roberts, and C W Royer. Direct search based on probabilistic descent in reduced spaces, *SIAM J. Optim.*, 33(4):3057-3082, 2023.
+* L Roberts, and C W Royer. Direct search based on probabilistic descent in reduced spaces, *SIAM J. Optim.*, 33(4):3057-3082, 2023.
 
-If you use this package with linear constraints, please also cite:
+If you use this package with linear constraints (v1.1 and later), please also cite:
 
-L Roberts, and C W Royer. Poll Set Construction and Worst-Case Complexity for Direct Search under Polyhedral Convex Constraints, *arXiv preprint*, 2026.
+* L Roberts, and C W Royer. Poll Set Construction and Worst-Case Complexity for Direct Search under Polyhedral Convex Constraints, *arXiv preprint*, 2026.
 
 Installation
 ------------
@@ -59,6 +59,7 @@ This package can solve unconstrained nonlinear optimization problems of the form
 ``min_{x in R^n} f(x)``
 and problems with linear inequality constraints of the form
 ``min_{x in R^n} f(x) s.t. Ax <= b`` (which includes bound constraints).
+Linear constraints were added in version 1.1.
 The simplest usage of ``directsearch`` is
 
 .. code-block:: python
