@@ -31,6 +31,10 @@ If you use this package, please cite:
 
 L Roberts, and C W Royer. Direct search based on probabilistic descent in reduced spaces, *SIAM J. Optim.*, 33(4):3057-3082, 2023.
 
+If you use this package with linear constraints, please also cite:
+
+L Roberts, and C W Royer. Poll Set Construction and Worst-Case Complexity for Direct Search under Polyhedral Convex Constraints, *arXiv preprint*, 2026.
+
 Installation
 ------------
 Please install using pip:
@@ -51,17 +55,22 @@ The ``-e`` option to pip allows you to modify the source code and for your Pytho
 
 Usage
 -----
-This package can solve unconstrained nonlinear optimization problems of the form: ``min_{x in R^n} f(x)``.
+This package can solve unconstrained nonlinear optimization problems of the form
+``min_{x in R^n} f(x)``
+and problems with linear inequality constraints of the form
+``min_{x in R^n} f(x) s.t. Ax <= b`` (which includes bound constraints).
 The simplest usage of ``directsearch`` is
 
 .. code-block:: python
 
-    soln = directsearch.solve(f, x0)
+    soln = directsearch.solve(f, x0, A=None, b=None)
 
 where
 
 * ``f`` is a callable objective function, taking in a ``numpy.ndarray`` the same shape as ``x0`` and returing a single ``float``.
 * ``x0`` is a one-dimensional ``numpy.ndarray`` (i.e. ``len(x0.shape)==1``), the starting point for the algorithm. It should be the best available guess of the minimizer.
+* ``A`` and ``b`` are optional ``numpy.ndarray`` objects representing the linear constraints ``A @ x <= b`` (i.e. ``len(A.shape)==2`` and ``len(b.shape)==1``).
+  If ``x0`` does not satisfy these constraints, then it will be perturbed by the solver.
 
 The output is an object with fields:
 
@@ -89,6 +98,8 @@ The full set of available functions is:
 * ``directsearch.solve_probabilistic_directsearch()`` applies direct search based on probabilistic descent without sketching [4].
 * ``directsearch.solve_subspace_directsearch()`` applies direct-search schemes based on polling directions in random subspaces [5].
 * ``directsearch.solve_stp()`` applies the stochastic three points method, a particular direct-search technique [6].
+
+These specialized solvers are only available for unconstrained problems (i.e. ``A is None and b is None``).
 
 **Optional parameters and more information**
 
