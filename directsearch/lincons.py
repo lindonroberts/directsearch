@@ -10,6 +10,7 @@ of the nearby tangent cone
 import numpy as np
 from scipy.linalg import null_space, qr
 from scipy.optimize import linprog, minimize, LinearConstraint, NonlinearConstraint, direct
+import warnings
 
 from .ds import DEFAULT_PARAMS, EXIT_MAXFUN_REACHED, EXIT_ALPHA_MIN_REACHED
 
@@ -655,10 +656,17 @@ def ds_lincons(f, x0, A=None, b=None,
         print_freq = max(int(maxevals // 20), 1)
     print_freq = int(print_freq)
 
+    # Ensure x0 is feasible
+    init_feas_tol = 1e-14
+    if not np.all(A @ x <= b + init_feas_tol):
+        warnings.warn("Perturbing initial point to make it feasible")
+        soln = minimize(lambda y: 0.5 * np.dot(y - x, y - x), x, jac=lambda y: (y - x), constraints=LinearConstraint(A, ub=b))
+        x = soln.x.copy()
+        assert np.all(A @ x <= b + init_feas_tol), "Could not find feasible initial point, A @ x0 <= b"
+
     # Input checking
     assert callable(f), "Objective function should be callable"
     assert callable(rho_to_use), "Sufficient decrease function rho should be callable"
-    assert np.all(A @ x0 <= b + 1e-14), "Initial point must be feasible, A @ x0 <= b"
     assert maxevals > 0, "maxevals should be strictly positive"
     assert alpha_max > 0.0, "alpha_max should be strictly positive"
     assert alpha0 > 0.0, "alpha0 should be strictly positive"
@@ -749,8 +757,8 @@ def ds_lincons(f, x0, A=None, b=None,
             fnew = f(xnew)
             nf += 1
             # Compute the target improvement
-            sufficient_decrease = (fnew < fx - rho_to_use(alpha, np.linalg.norm(dj))) if rho_uses_normd else (
-                        fnew < fx - rho_to_use(alpha))
+            sufficient_decrease = (fnew < fx - rho_to_use(alpha, np.linalg.norm(dj))) if rho_uses_normd and not poll_normal_cone else (
+                    fnew < fx - rho_to_use(alpha))
 
             # Quit on budget (update to xnew if we just saw an improvement)
             if nf >= maxevals:
