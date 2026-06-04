@@ -29,7 +29,11 @@ Citation
 --------
 If you use this package, please cite:
 
-L Roberts, and C W Royer. Direct search based on probabilistic descent in reduced spaces, *SIAM J. Optim.*, 33(4):3057-3082, 2023.
+* L Roberts, and C W Royer. Direct search based on probabilistic descent in reduced spaces, *SIAM J. Optim.*, 33(4):3057-3082, 2023.
+
+If you use this package with linear constraints (v1.1 and later), please also cite:
+
+* L Roberts, and C W Royer. Poll Set Construction and Worst-Case Complexity for Direct Search under Polyhedral Convex Constraints, *arXiv preprint arXiv:2605.27814*, 2026.
 
 Installation
 ------------
@@ -51,17 +55,23 @@ The ``-e`` option to pip allows you to modify the source code and for your Pytho
 
 Usage
 -----
-This package can solve unconstrained nonlinear optimization problems of the form: ``min_{x in R^n} f(x)``.
+This package can solve unconstrained nonlinear optimization problems of the form
+``min_{x in R^n} f(x)``
+and problems with linear inequality constraints of the form
+``min_{x in R^n} f(x) s.t. Ax <= b`` (which includes bound constraints).
+Linear constraints were added in version 1.1.
 The simplest usage of ``directsearch`` is
 
 .. code-block:: python
 
-    soln = directsearch.solve(f, x0)
+    soln = directsearch.solve(f, x0, A=None, b=None)
 
 where
 
 * ``f`` is a callable objective function, taking in a ``numpy.ndarray`` the same shape as ``x0`` and returing a single ``float``.
 * ``x0`` is a one-dimensional ``numpy.ndarray`` (i.e. ``len(x0.shape)==1``), the starting point for the algorithm. It should be the best available guess of the minimizer.
+* ``A`` and ``b`` are optional ``numpy.ndarray`` objects representing the linear constraints ``A @ x <= b`` (i.e. ``len(A.shape)==2`` and ``len(b.shape)==1``).
+  If ``x0`` does not satisfy these constraints, then it will be perturbed by the solver.
 
 The output is an object with fields:
 
@@ -85,10 +95,16 @@ There are many configurable options for the solver in `directsearch` and several
 The full set of available functions is:
 
 * ``directsearch.solve()`` applies a direct-search method to a given optimization problem. It is the most flexible available routine.
-* ``directsearch.solve_directsearch()`` applies regular direct-search techniques without sketching [1,2,3].
+* ``directsearch.solve_directsearch()`` applies regular direct-search techniques without sketching [1,2,3,7].
 * ``directsearch.solve_probabilistic_directsearch()`` applies direct search based on probabilistic descent without sketching [4].
 * ``directsearch.solve_subspace_directsearch()`` applies direct-search schemes based on polling directions in random subspaces [5].
 * ``directsearch.solve_stp()`` applies the stochastic three points method, a particular direct-search technique [6].
+
+The randomized solvers are only available for unconstrained problems (i.e. ``A is None and b is None``). 
+Only ``solve()`` and ``solve_directsearch()`` are available for linearly constrained problems.
+
+The default algorithms used by ``solve()`` are regular direct search without sketching [1,2,3] for unconstrained problems
+and its extension [7] for linearly constrained problems.
 
 **Optional parameters and more information**
 
@@ -99,7 +115,7 @@ The most commonly used optional inputs (to all functions) are:
 * ``verbose``: a ``bool`` for whether or not to print progress information.
 * ``print_freq``: an ``int`` indicating how frequently to print progress information (1 is at every iteration).
 
-**Choosing a solver instance**
+**Choosing a solver instance (for unconstrained problems)**
 
 As a rule of thumb, if ``len(x0)`` is not too large (e.g. less than 50), then ``solve_directsearch()`` or ``solve_probabilistic_directsearch()`` are suitable choices.
 Of these, generally ``solve_probabilistic_directsearch()`` will solve with fewer evaluations of ``f``, but ``solve_directsearch()`` is a deterministic algorithm.
@@ -114,6 +130,7 @@ Note that ``solve_directsearch()`` is the only deterministic algorithm (i.e. rep
 4. S Gratton, C W Royer, L N Vicente, and Z Zhang. Direct Search Based on Probabilistic Descent. *SIAM J. Optimization*, 25(3), 2015, 1515-1541.
 5. L Roberts, and C W Royer. Direct search based on probabilistic descent in reduced spaces, *SIAM J. Optimization*, 33(4), 2023, 3057-3082.
 6. E H Bergou, E Gorbunov, and P Richtarik. Stochastic Three Points Method for Unconstrained Smooth Minimization. *SIAM J. Optimization*, 30(4), 2020, 2726-2749.
+7. L Roberts, and C W Royer. Polling Set Construction and Worst-Case Complexity for Direct Search under Polyhedral Convex Constraints. *arXiv preprint arXiv:2605.27814*, 2026.
 
 Bugs
 ----

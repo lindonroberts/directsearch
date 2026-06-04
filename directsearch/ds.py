@@ -66,6 +66,8 @@ DEFAULT_PARAMS['use_stochastic_three_points'] = False # Boolean for a specific m
 DEFAULT_PARAMS['poll_scale_prob'] = 0.0 # Probabilty of direction scaling 
 DEFAULT_PARAMS['poll_scale_factor'] = 1.0 # Scaling factor for direction norms
 DEFAULT_PARAMS['rho_uses_normd'] = True # Forcing function based on direction norm
+DEFAULT_PARAMS['return_iteration_counts'] = False # include iteration count dictionary as extra return parameter?
+DEFAULT_PARAMS['poll_normal_cone'] = True  # for linear constraints, include normal cone in poll directions?
 
 # Exit flags
 EXIT_ALPHA_MIN_REACHED = 0  # alpha <= alpha_min
@@ -307,10 +309,11 @@ def ds(f, x0, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEFAULT_PARAMS['sketch_dim']
     # Start of the optimization process
     fx = f(x)
     nf = 1
+    iteration_counts = {'successful': 0, 'successful_negative_direction': 0, 'unsuccessful': 0}
     if nf >= maxevals:
         if verbose:
             print("Quit (max evals)")
-        return x, fx, nf, EXIT_MAXFUN_REACHED
+        return x, fx, nf, EXIT_MAXFUN_REACHED, iteration_counts
 
     ###############
     # Main loop
@@ -318,6 +321,8 @@ def ds(f, x0, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEFAULT_PARAMS['sketch_dim']
     k = -1
     if verbose:
         print("{0:^5}{1:^15}{2:^15}".format('k', 'f(xk)', 'alpha_k'))
+
+
     while nf < maxevals:
         k += 1
         if verbose and k % print_freq == 0:
@@ -330,6 +335,7 @@ def ds(f, x0, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEFAULT_PARAMS['sketch_dim']
         ndirs = Dk.shape[1]
 
         # Perform a direct-search iteration according to the chosen approach
+        sufficient_decrease = False
         if use_stochastic_three_points:
             # STP method - Simple decrease, fixed stepsize sequence
             alpha = alpha0 / sqrt(k + 1)
@@ -343,12 +349,23 @@ def ds(f, x0, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEFAULT_PARAMS['sketch_dim']
                 if fnew < fx:
                     x = xnew.copy()
                     fx = fnew
+                    sufficient_decrease = True
 
                 # Quit on budget
                 if nf >= maxevals:
+                    if sufficient_decrease:
+                        iteration_counts['successful'] += 1
+                    else:
+                        iteration_counts['unsuccessful'] += 1
                     if verbose:
                         print("{0:^5}{1:^15.4e}{2:^15.2e} - max evals reached".format(k, fx, alpha))
-                    return x, fx, nf, EXIT_MAXFUN_REACHED
+                    return x, fx, nf, EXIT_MAXFUN_REACHED, iteration_counts
+
+            # Select iteration type
+            if sufficient_decrease:
+                iteration_counts['successful'] += 1
+            else:
+                iteration_counts['unsuccessful'] += 1
 
             # Quit on small stepsize
             if alpha < alpha_min:
@@ -373,9 +390,13 @@ def ds(f, x0, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEFAULT_PARAMS['sketch_dim']
                     if sufficient_decrease:
                         x = xnew.copy()
                         fx = fnew
+                    if sufficient_decrease:
+                        iteration_counts['successful'] += 1
+                    else:
+                        iteration_counts['unsuccessful'] += 1
                     if verbose:
                         print("{0:^5}{1:^15.4e}{2:^15.2e} - max evals reached".format(k, fx, alpha))
-                    return x, fx, nf, EXIT_MAXFUN_REACHED
+                    return x, fx, nf, EXIT_MAXFUN_REACHED, iteration_counts
 
                 # If sufficient decrease, update xk and stop poll step
                 if sufficient_decrease:
@@ -385,6 +406,12 @@ def ds(f, x0, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEFAULT_PARAMS['sketch_dim']
                     alpha = min(gamma_inc * alpha, alpha_max)
                     polling_successful = True
                     break  # stop poll step, go to next iteration
+
+            # Select iteration type
+            if polling_successful:
+                iteration_counts['successful'] += 1
+            else:
+                iteration_counts['unsuccessful'] += 1
 
             # If here, no decrease found
             if alpha < alpha_min:
@@ -400,4 +427,4 @@ def ds(f, x0, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEFAULT_PARAMS['sketch_dim']
         # End loop
         ###########
 
-    return x, fx, nf, EXIT_ALPHA_MIN_REACHED
+    return x, fx, nf, EXIT_ALPHA_MIN_REACHED, iteration_counts
