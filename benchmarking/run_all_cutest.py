@@ -69,18 +69,24 @@ def solve_all_problems(run_name, budget_in_gradients=200, skip_existing=True, li
     # All directsearch.solve() settings for a given run should be put here
     if run_name == 'tangent_only':
         poll_normal_cone = False
+        poll_normal_cone_negsum = False
         rho_uses_normd = True  # default choice
         get_detailed_info = False  # no valid Lambda here
     elif run_name == 'tangent_only_simple_rho':
         poll_normal_cone = False
+        poll_normal_cone_negsum = False
         rho_uses_normd = False  # to match with tangent_and_normal
         get_detailed_info = False  # no valid Lambda here
     elif run_name == 'tangent_only_simple_rho_with_normal_old':
         poll_normal_cone = False
+        poll_normal_cone_negsum = False
         rho_uses_normd = False  # to match with tangent_and_normal
         get_detailed_info = False  # no valid Lambda here
     elif run_name.startswith('tangent_and_normal'):
         poll_normal_cone = True
+        poll_normal_cone_negsum = ('negsum' in run_name)
+        if 'negsum_only' in run_name:
+            poll_normal_cone = False
         rho_uses_normd = False  # required when poll_normal_cone=True
         get_detailed_info = run_name.endswith('detailed')
     else:
@@ -131,6 +137,7 @@ def solve_all_problems(run_name, budget_in_gradients=200, skip_existing=True, li
                                                                  return_iteration_counts=True,
                                                                  rho_uses_normd=rho_uses_normd,
                                                                  poll_normal_cone=poll_normal_cone,
+                                                                 poll_normal_cone_negsum=poll_normal_cone_negsum,
                                                                  detailed_info_lincons=True,
                                                                  true_gradf=true_gradf)
                     stop_time, stop_cpu_clock = datetime.datetime.now(), time.process_time()
@@ -141,6 +148,7 @@ def solve_all_problems(run_name, budget_in_gradients=200, skip_existing=True, li
                                                            return_iteration_counts=True,
                                                            rho_uses_normd=rho_uses_normd,
                                                            poll_normal_cone=poll_normal_cone,
+                                                           poll_normal_cone_negsum=poll_normal_cone_negsum,
                                                            detailed_info_lincons=False)
                     stop_time, stop_cpu_clock = datetime.datetime.now(), time.process_time()
                     info = None
@@ -178,7 +186,9 @@ def main():
     # run_names.append('tangent_only_simple_rho')  # cannot get detailed info
     # run_names.append('tangent_and_normal')  # used for main results, no detailed info
     # run_names.append('tangent_and_normal_detailed')  # new run with detailed info
-    run_names.append('tangent_only_simple_rho_with_normal_old')  # old run but with **scaled normals**
+    # run_names.append('tangent_only_simple_rho_with_normal_old')  # old run but with **scaled normals**
+    # run_names.append('tangent_and_normal_negsum')  # main run with -T + sum(-T)
+    run_names.append('tangent_and_normal_negsum_only')  # main run with sum(-T) only
 
     skip_existing = True  # new runs only
     # skip_existing = False  # overwrite old runs

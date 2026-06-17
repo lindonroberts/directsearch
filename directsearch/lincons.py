@@ -194,7 +194,7 @@ def calculate_cone_generators(A, verbose=False):
     return R, GENERATORS_DOUBLE_DESCENT
 
 
-def get_poll_directions(A, b, x, alpha, include_negative_directions=True, verbose=False):
+def get_poll_directions(A, b, x, alpha, include_negative_directions=True, include_negative_sum=False, verbose=False):
     """
     Given feasible region { y : A @ y <= b }, a feasible point x and radius alpha, return a useful set of
     feasible poll directions in B(x,alpha).
@@ -265,6 +265,21 @@ def get_poll_directions(A, b, x, alpha, include_negative_directions=True, verbos
                     # print("new point =", x - alpha_i * ti)
                 if alpha_i > ZERO_THRESH:
                     Tneg = np.hstack((Tneg, -alpha_i * ti.reshape((n, 1))))
+            if include_negative_sum:
+                # Optional idea - include sum of these negative directions too (scaled to ensure feasibility)
+                Tneg_sum = -Tneg.sum(axis=1)  # negative sum of all columns
+                # Note: flipping sign above so can recycle below code again
+                if np.any(T.T @ Tneg_sum <= -(1.0 - ZERO_THRESH) * alpha**2):
+                    # Found another column tj such that dot(tj, ti) == -alpha^2, i.e. tj = -ti (since both have length alpha)
+                    # No need to add -ti to poll directions, since it's already there
+                    if verbose:
+                        print("Found -ti already in T, skipping")
+                else:
+                    A_ti = A @ Tneg_sum
+                    idx = np.nonzero(A_ti < -ZERO_THRESH)[0]
+                    alpha_i = np.min(s[idx] / (-A_ti[idx])) if len(idx) > 0 else 1.0
+                    alpha_i = max(min(alpha_i, 1.0), 0.0)  # always ensure 0 <= alpha_i <= 1
+                    Tneg = np.hstack((Tneg, -alpha_i * Tneg_sum.reshape((n, 1))))
 
             # If rank(T) < n --- coming from rank-deficient active constraints --- then we have more
             # directions we can add, namely +/-null(directions in T)
@@ -312,6 +327,50 @@ def get_poll_directions(A, b, x, alpha, include_negative_directions=True, verbos
                     Tneg = np.hstack((Tneg, null_T @ NT))
                     if NTneg is not None:
                         Tneg = np.hstack((Tneg, null_T @ NTneg))
+            return T, Tneg, gen_type, len(J)
+        elif include_negative_sum:
+            # TODO NEW Just the negsum part from above...
+            Tneg = np.zeros((n, 0), dtype=float)
+            for i in range(T.shape[1]):
+                ti = T[:, i]
+                if verbose:
+                    print("Negative of direction i=%g" % i, "ti =", ti)
+                if np.any(T.T @ ti <= -(1.0 - ZERO_THRESH) * alpha ** 2):
+                    # Found another column tj such that dot(tj, ti) == -alpha^2, i.e. tj = -ti (since both have length alpha)
+                    # No need to add -ti to poll directions, since it's already there
+                    if verbose:
+                        print("Found -ti already in T, skipping")
+                    continue
+                A_ti = A @ ti
+                idx = np.nonzero(A_ti < -ZERO_THRESH)[0]
+                alpha_i = np.min(s[idx] / (-A_ti[idx])) if len(idx) > 0 else 1.0
+                alpha_i = max(min(alpha_i, 1.0), 0.0)  # always ensure 0 <= alpha_i <= 1
+                if verbose:
+                    # print("x =", x, ", s =", s)
+                    # print("A_ti =", A_ti)
+                    # print("idx =", idx)
+                    # print("s / (-A_ti) =", s[idx] / (-A_ti[idx]))
+                    print("alpha_i = %g" % alpha_i)
+                    # print("-alpha_i ti =", -alpha_i * ti)
+                    # print("new point =", x - alpha_i * ti)
+                if alpha_i > ZERO_THRESH:
+                    Tneg = np.hstack((Tneg, -alpha_i * ti.reshape((n, 1))))
+            # Optional idea - include sum of these negative directions too (scaled to ensure feasibility)
+            Tneg_sum = -Tneg.sum(axis=1)  # negative sum of all columns
+            # Note: flipping sign above so can recycle below code again
+            if np.any(T.T @ Tneg_sum <= -(1.0 - ZERO_THRESH) * alpha ** 2):
+                # Found another column tj such that dot(tj, ti) == -alpha^2, i.e. tj = -ti (since both have length alpha)
+                # No need to add -ti to poll directions, since it's already there
+                if verbose:
+                    print("Found -ti already in T, skipping")
+                Tneg = None
+            else:
+                A_ti = A @ Tneg_sum
+                idx = np.nonzero(A_ti < -ZERO_THRESH)[0]
+                alpha_i = np.min(s[idx] / (-A_ti[idx])) if len(idx) > 0 else 1.0
+                alpha_i = max(min(alpha_i, 1.0), 0.0)  # always ensure 0 <= alpha_i <= 1
+                Tneg = -alpha_i * Tneg_sum.reshape((n, 1))
+
             return T, Tneg, gen_type, len(J)
         else:
             if False:
@@ -546,6 +605,7 @@ def ds_lincons(f, x0, A=None, b=None,
                print_freq=DEFAULT_PARAMS['print_freq'],
                rho_uses_normd=DEFAULT_PARAMS['rho_uses_normd'],
                poll_normal_cone=DEFAULT_PARAMS['poll_normal_cone'],
+               poll_normal_cone_negsum=False,
                detailed_info=False,
                true_gradf=None):
     """
@@ -606,6 +666,7 @@ def ds_lincons(f, x0, A=None, b=None,
     # Set some sensible defaults for: sufficient decrease threshold, # evaluations, initial step size
     # Set the forcing function
     poll_normal_cone = bool(poll_normal_cone)
+    poll_normal_cone_negsum = bool(poll_normal_cone_negsum)
     if rho is None:
         if rho_uses_normd and not poll_normal_cone:  # cannot use this when poll_normal_cone=True
             rho_to_use = lambda t, normd: min(1e-5, 1e-5 * (t * normd) ** 2)
@@ -706,7 +767,8 @@ def ds_lincons(f, x0, A=None, b=None,
             print("{0:^5}{1:^15.4e}{2:^15.2e}".format(k, fx, alpha))
 
         # Generate poll directions adapted to linear constraints
-        Dk, Dk_neg, gen_type, m_active = get_poll_directions(A, b, x, alpha, include_negative_directions=poll_normal_cone, verbose=verbose)
+        Dk, Dk_neg, gen_type, m_active = get_poll_directions(A, b, x, alpha, include_negative_directions=poll_normal_cone,
+                                                             include_negative_sum=poll_normal_cone_negsum, verbose=verbose)
         # print("gen type =", gen_type)
         # WARNING: poll directions Dk[:,i] are already scaled by alpha, don't multiply by alpha below
         # print("******")

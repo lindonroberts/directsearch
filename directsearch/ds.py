@@ -33,7 +33,10 @@ from math import sqrt
 import numpy as np
 
 # Local imports
-from .sketcher import sketch_matrix, check_valid_sketch_method
+try:
+    from .sketcher import sketch_matrix, check_valid_sketch_method
+except ImportError:
+    from sketcher import sketch_matrix, check_valid_sketch_method
 
 ###############################################################################
 # Useful global variables parameter values
