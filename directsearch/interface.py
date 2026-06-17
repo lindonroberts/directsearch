@@ -38,9 +38,12 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 # Ensure compatibility with Python 2
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+import numpy as np
+
 # Import key elements from the ds module
 from .ds import ds, DEFAULT_PARAMS, EXIT_ALPHA_MIN_REACHED, EXIT_MAXFUN_REACHED
 from .lincons import ds_lincons
+from .bound_cons import ds_bounds, process_bounds
 
 # Global variables
 __all__ = ['solve', 'solve_directsearch', 'solve_probabilistic_directsearch', 'solve_subspace_directsearch', 'solve_stp']
@@ -90,7 +93,7 @@ class OptimResults(object):
 
 
 ###############################################################################
-def solve(f, x0, A=None, b=None, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEFAULT_PARAMS['sketch_dim'],
+def solve(f, x0, bounds=None, A=None, b=None, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEFAULT_PARAMS['sketch_dim'],
           sketch_type=DEFAULT_PARAMS['sketch_type'], maxevals=DEFAULT_PARAMS['maxevals'],
           poll_type=DEFAULT_PARAMS['poll_type'], alpha0=DEFAULT_PARAMS['alpha0'],
           alpha_max=DEFAULT_PARAMS['alpha_max'], alpha_min=DEFAULT_PARAMS['alpha_min'],
@@ -108,15 +111,22 @@ def solve(f, x0, A=None, b=None, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEFAULT_P
 
             Opt = solve(f, x0)
         or
-            Opt = solve(f, x0, A, b)
-        attempts to minimize the function f starting at x0 (possibly subject to the linear inequality constraints
-        A @ x <= b) using a direct-search method. The final information is output in the Opt structure.
+            Opt = solve(f, x0, bounds=bounds)
+        or
+            Opt = solve(f, x0, A=A, b=b)
+        or
+            Opt = solve(f, x0, bounds=bounds, A=A, b=b)
+
+        attempts to minimize the function f starting at x0 (possibly subject to optional bound constraints xL <= x <= xU
+        and/or optional the linear inequality constraints A @ x <= b) using a direct-search method.
+        The final information is output in the Opt structure.
 
         Sketching and choice of poll type is not available if linear inequality constraints are provided.
 
         Inputs:
             f: Function handle for the objective to be minimized.
             x0: Initial point. Must satisfy constraints A @ x0 <= b
+            bounds: scipy.optimize.Bounds object defining the bounds xL <= x <= xU. Default: None
             A: matrix defining linear inequality constraints A @ x <= b. Default: None
             b: right-hand side defining linear inequality constraints A @ x <= b. Default: None
             rho: Choice of the forcing function.
@@ -170,13 +180,41 @@ def solve(f, x0, A=None, b=None, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEFAULT_P
             iter_counts: if return_iteration_counts is True, a dictionary str: int containing the number of iterations
             of each type (successful, unsuccessful). If return_iteration_counts is False, this is not returned.
     """
-    if A is None and b is None:
+    if bounds is None and A is None and b is None:
         xmin, fmin, nf, flag, iter_counts = ds(f, x0, rho=rho, sketch_dim=sketch_dim, sketch_type=sketch_type, maxevals=maxevals,
                                    poll_type=poll_type, alpha0=alpha0, alpha_max=alpha_max, alpha_min=alpha_min,
                                    gamma_inc=gamma_inc, gamma_dec=gamma_dec, verbose=verbose, print_freq=print_freq,
                                    use_stochastic_three_points=use_stochastic_three_points, rho_uses_normd=rho_uses_normd)
         info = None
+    elif A is None and b is None:
+        # Bounds only
+        xmin, fmin, nf, flag, iter_counts = ds_bounds(f, x0, bounds, rho=rho, maxevals=maxevals,
+                                                         alpha0=alpha0, alpha_max=alpha_max, alpha_min=alpha_min,
+                                                         gamma_inc=gamma_inc, gamma_dec=gamma_dec,
+                                                         verbose=verbose, print_freq=print_freq,
+                                                         rho_uses_normd=rho_uses_normd,
+                                                         poll_normal_cone=poll_normal_cone,
+                                                         poll_normal_cone_negsum=poll_normal_cone_negsum)
+        info = None
     else:
+        # Linear constraints
+        if bounds is not None:
+            # Add bounds onto the end of A and b, as extra inequality constraints
+            xL, xU = process_bounds(x0, bounds)
+            n = len(xL)
+            for i in range(n):
+                if np.isfinite(xL[i]):
+                    # x[i] >= xL[i] --> (-ei) @ x <= -xL[i]
+                    new_row = np.zeros((1,n), dtype=float)
+                    new_row[i] = -1.0
+                    A = np.vstack((A, new_row))
+                    b = np.append(b, -xL[i])
+                if np.isfinite(xU[i]):
+                    # x[i] <= xU[i] --> (ei) @ x <= xU[i]
+                    new_row = np.zeros((1, n), dtype=float)
+                    new_row[i] = 1.0
+                    A = np.vstack((A, new_row))
+                    b = np.append(b, xU[i])
         xmin, fmin, nf, flag, iter_counts, info = ds_lincons(f, x0, A, b, rho=rho, maxevals=maxevals,
                                                        alpha0=alpha0, alpha_max=alpha_max, alpha_min=alpha_min,
                                                        gamma_inc=gamma_inc, gamma_dec=gamma_dec,
@@ -198,7 +236,7 @@ def solve(f, x0, A=None, b=None, rho=DEFAULT_PARAMS['rho'], sketch_dim=DEFAULT_P
             return OptimResults(xmin, fmin, nf, flag)
 
 ###############################################################################
-def solve_directsearch(f, x0, A=None, b=None, rho=DEFAULT_PARAMS['rho'], maxevals=DEFAULT_PARAMS['maxevals'],
+def solve_directsearch(f, x0, bounds=None, A=None, b=None, rho=DEFAULT_PARAMS['rho'], maxevals=DEFAULT_PARAMS['maxevals'],
                        poll_type=DEFAULT_PARAMS['poll_type'], alpha0=DEFAULT_PARAMS['alpha0'],
                        alpha_max=DEFAULT_PARAMS['alpha_max'], alpha_min=DEFAULT_PARAMS['alpha_min'],
                        gamma_inc=DEFAULT_PARAMS['gamma_inc'], gamma_dec=DEFAULT_PARAMS['gamma_dec'],
@@ -251,7 +289,7 @@ def solve_directsearch(f, x0, A=None, b=None, rho=DEFAULT_PARAMS['rho'], maxeval
         Output: See output of a call to the solve() function.
     """
 
-    return solve(f, x0, A, b, rho=rho, sketch_dim=None, maxevals=maxevals, poll_type=poll_type, alpha0=alpha0,
+    return solve(f, x0, bounds=bounds, A=A, b=b, rho=rho, sketch_dim=None, maxevals=maxevals, poll_type=poll_type, alpha0=alpha0,
                  alpha_max=alpha_max, alpha_min=alpha_min, gamma_inc=gamma_inc, gamma_dec=gamma_dec, verbose=verbose,
                  print_freq=print_freq, use_stochastic_three_points=False, rho_uses_normd=rho_uses_normd,
                  return_iteration_counts=return_iteration_counts)

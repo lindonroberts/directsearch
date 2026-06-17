@@ -6,6 +6,7 @@ Simple directsearch example: minimize the Rosenbrock function with linear constr
 
 from __future__ import print_function
 import numpy as np
+from scipy.optimize import Bounds
 import directsearch
 
 # Define the objective function
@@ -17,13 +18,17 @@ def rosenbrock(x):
 # Constraints are given as a matrix A and vector b, such that A @ x <= b
 # If the initial point x0 does not satisfy the constraints, it is projected
 # into the feasible region using scipy.optimize.minimize
-constraint_choice = 1
+constraint_choice = 0
 if constraint_choice == 0:
     print("Bound constraints: x[0] <= 0.5, x[1] <= 0.7 --> minimizer is near [0.5, 0.25]")
-    A = np.array([[1.0, 0.0], [0.0, 1.0]])
-    b = np.array([0.5, 0.7])
+    bounds = Bounds(lb=-np.inf, ub=[0.5, 0.7])
+    # A = np.array([[1.0, 0.0], [0.0, 1.0]])
+    # b = np.array([0.5, 0.7])
+    A = None
+    b = None
 elif constraint_choice == 1:
     print("Linear constraint: x[0] + x[1] <= 1 --> minimizer is near [0.62545, 0.37455]")
+    bounds = None
     A = np.array([[1.0, 1.0]])
     b = np.array([1.0])
 else:
@@ -36,7 +41,7 @@ x0 = np.array([-1.2, -1.0])  # feasible initial point
 # x0 = np.array([1.0, 1.0])  # infeasible initial point
 
 # Call solver
-soln = directsearch.solve_directsearch(rosenbrock, x0, A, b)  # add verbose=True to print more information
+soln = directsearch.solve_directsearch(rosenbrock, x0, bounds=bounds, A=A, b=b)  # add verbose=True to print more information
 
 # Display output
 print(soln)
