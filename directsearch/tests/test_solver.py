@@ -114,11 +114,11 @@ class TestSolveLinearConstraints(unittest.TestCase):
 
                 # Call solver
                 if feasible_x0:
-                    soln = directsearch.solve_directsearch(rosenbrock, x0, A, b)
+                    soln = directsearch.solve_directsearch(rosenbrock, x0, bounds=None, A=A, b=b)
                 else:
                     # Ensure a warning is flagged
                     with pytest.warns(UserWarning, match="initial point"):
-                        soln = directsearch.solve_directsearch(rosenbrock, x0, A, b)
+                        soln = directsearch.solve_directsearch(rosenbrock, x0, bounds=None, A=A, b=b)
 
                 print("")
                 print(soln)
