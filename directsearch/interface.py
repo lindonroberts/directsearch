@@ -198,21 +198,28 @@ def solve(f, x0, bounds=None, A=None, b=None, rho=DEFAULT_PARAMS['rho'], sketch_
         info = None
     else:
         # Linear constraints
+        # print("A =", A)
+        # print("b =", b)
         if bounds is not None:
             # Add bounds onto the end of A and b, as extra inequality constraints
             xL, xU = process_bounds(x0, bounds)
             n = len(xL)
+
+            if A is None:
+                # Not needed usually, just for testing purposes
+                A = np.zeros((0, n))
+                b = np.array([])
             for i in range(n):
                 if np.isfinite(xL[i]):
                     # x[i] >= xL[i] --> (-ei) @ x <= -xL[i]
                     new_row = np.zeros((1,n), dtype=float)
-                    new_row[i] = -1.0
+                    new_row[0, i] = -1.0
                     A = np.vstack((A, new_row))
                     b = np.append(b, -xL[i])
                 if np.isfinite(xU[i]):
                     # x[i] <= xU[i] --> (ei) @ x <= xU[i]
                     new_row = np.zeros((1, n), dtype=float)
-                    new_row[i] = 1.0
+                    new_row[0, i] = 1.0
                     A = np.vstack((A, new_row))
                     b = np.append(b, xU[i])
         xmin, fmin, nf, flag, iter_counts, info = ds_lincons(f, x0, A, b, rho=rho, maxevals=maxevals,
